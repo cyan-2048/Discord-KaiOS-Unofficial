@@ -1,82 +1,95 @@
-function DiscordXHR() {
-	this.token = null;
-}
+((exports) => {
+	let XMLHttpRequest = typeof require === "function" ? require("w3c-xmlhttprequest").XMLHttpRequest : window.XMLHttpRequest;
+	class DiscordXHR {
+		constructor() {
+			this.token = null;
+		}
+		get baseURL() {
+			return "https://discord.com/api/v9/";
+		}
+		get baseHeaders() {
+			return {
+				"content-type": "application/json",
+			};
+		}
 
-DiscordXHR.prototype.baseURL = 'https://discord.com/api/v9/';
-DiscordXHR.prototype.baseHeaders = {
-	'content-type': 'application/json'
-};
+		login(token) {
+			this.token = token;
+		}
 
-DiscordXHR.prototype.login = function(token) {
-	this.token = token;
-};
+		generateNonce() {
+			return String(Date.now() * 512 * 1024);
+		}
 
-DiscordXHR.prototype.generateNonce = function() {
-	return String(Date.now()*512*1024);
-};
+		xhrRequest(method, path, headers, data) {
+			return new Promise((res, err) => {
+				var dataString = data instanceof Object ? JSON.stringify(data) : String(data);
 
-DiscordXHR.prototype.xhrRequest = function(method, path, headers, data) {
-	var dataString = data instanceof Object ? JSON.stringify(data) : String(data);
+				var xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
+				xhr.open(method, this.baseURL + path, true);
 
-	var xhr = new XMLHttpRequest({ 'mozAnon': true, 'mozSystem': true });
-	xhr.open(method, this.baseURL + path, false);
+				var o = Object.assign({}, baseHeaders, headers);
+				Object.keys(o).forEach((a) => {
+					xhr.setRequestHeader(a, o[a]);
+				});
+				xhr.onload = res;
+				xhr.onerror = err;
+				xhr.send(dataString);
+			});
+		}
 
-	var o = Object.assign({ }, DiscordXHR.prototype.baseHeaders, headers);
+		xhrRequestJSON() {
+			return this.xhrRequest(...arguments).then((r) => r.json());
+		}
 
-	var hdrLs = Object.keys(o);
-	for(var hdrIx = 0; hdrIx < hdrLs.length; ++ hdrIx) {
-		xhr.setRequestHeader(hdrLs[hdrIx], o[hdrLs[hdrIx]]);
+		sendMessage(channel, message) {
+			return this.xhrRequestJSON(
+				"POST",
+				"channels/" + channel + "/messages",
+				{
+					authorization: this.token,
+				},
+				{
+					content: message,
+					nonce: this.generateNonce(),
+				}
+			);
+		}
+
+		getAvatarURL(userID, avatar) {
+			avatar = avatar || this.getProfile(userID).user.avatar;
+
+			return "https://cdn.discordapp.com/avatars/" + userID + "/" + avatar + ".png?size=24";
+		}
+
+		getChannel(channelID) {
+			return this.xhrRequestJSON("GET", "channels/" + channelID, {
+				authorization: this.token,
+			});
+		}
+
+		getChannels(base) {
+			return this.xhrRequestJSON("GET", base + "/channels", {
+				authorization: this.token,
+			});
+		}
+
+		getChannelsDM() {
+			return this.getChannels("users/@me");
+		}
+
+		getMessages(channel, count) {
+			return this.xhrRequestJSON("GET", "channels/" + channel + "/messages?limit=" + count, {
+				authorization: this.token,
+			});
+		}
+
+		getProfile(userID) {
+			return this.xhrRequestJSON("GET", "users/" + userID + "/profile", {
+				authorization: this.token,
+			});
+		}
 	}
 
-	xhr.send(dataString);
-
-	return xhr;
-};
-
-DiscordXHR.prototype.xhrRequestJSON = function() {
-	var xhr = this.xhrRequest.apply(this, arguments);
-	return JSON.parse(xhr.responseText);
-};
-
-DiscordXHR.prototype.sendMessage = function(channel, message) {
-	return this.xhrRequestJSON('POST', 'channels/' + channel + '/messages', {
-		'authorization': this.token
-	}, {
-		'content': message,
-		'nonce': this.generateNonce()
-	});
-};
-
-DiscordXHR.prototype.getAvatarURL = function(userID, avatar) {
-	avatar = avatar || this.getProfile(userID).user.avatar;
-
-	return 'https://cdn.discordapp.com/avatars/' + userID + '/' + avatar + '.png?size=24';
-};
-
-DiscordXHR.prototype.getChannel = function(channelID) {
-	return this.xhrRequestJSON('GET','channels/' + channelID, {
-		'authorization': this.token
-	});
-};
-
-DiscordXHR.prototype.getChannels = function(base) {
-	return this.xhrRequestJSON('GET',base + '/channels', {
-		'authorization': this.token
-	});
-};
-
-DiscordXHR.prototype.getChannelsDM = function() {
-	return this.getChannels('users/@me');
-};
-
-DiscordXHR.prototype.getMessages = function(channel, count) {
-	return this.xhrRequestJSON('GET', 'channels/' + channel + '/messages?limit=' + count, {
-		'authorization': this.token
-	});
-};
-
-DiscordXHR.prototype.getProfile = function(userID) {
-	return this.xhrRequestJSON('GET', 'users/' + userID + '/profile', {
-		'authorization': this.token
-	});
-};
+	exports.DiscordXHR = DiscordXHR;
+})(typeof exports === "undefined" ? this : exports);

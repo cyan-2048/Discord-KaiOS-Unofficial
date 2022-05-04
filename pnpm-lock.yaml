@@ -1,0 +1,29 @@
+lockfileVersion: 5.3
+
+specifiers:
+  w3c-xmlhttprequest: ^3.0.4
+  ws: ^8.6.0
+
+dependencies:
+  w3c-xmlhttprequest: 3.0.4
+  ws: 8.6.0
+
+packages:
+
+  /w3c-xmlhttprequest/3.0.4:
+    resolution: {integrity: sha512-GOR3PNrFVioJtxb+VR1kp80+UM89ga85akLRYVZX7fmaQTn/kkj9Q18MhNoGtvRJ2ez5i77EpQ0hNBB7+e/RBg==}
+    engines: {node: '>= 10.13.0'}
+    dev: false
+
+  /ws/8.6.0:
+    resolution: {integrity: sha512-AzmM3aH3gk0aX7/rZLYvjdvZooofDu3fFOzGqcSnQ1tOcTWwhM/o+q++E8mAyVVIyUdajrkzWUGftaVSDLn1bw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: ^5.0.2
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false

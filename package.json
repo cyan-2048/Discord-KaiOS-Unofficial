@@ -1,0 +1,6 @@
+{
+	"dependencies": {
+		"w3c-xmlhttprequest": "^3.0.4",
+		"ws": "^8.6.0"
+	}
+}
