@@ -9,7 +9,7 @@
 		}
 		get baseHeaders() {
 			return {
-				[typeof require === "function" ? "content-type" : "Content-Type"]: "application/json",
+				"Content-Type": "application/json",
 			};
 		}
 
@@ -30,7 +30,7 @@
 
 				var o = Object.assign({}, this.baseHeaders, headers);
 				Object.keys(o).forEach((a) => {
-					xhr.setRequestHeader(a, o[a]);
+					xhr.setRequestHeader(a, o[a].replace(/\r?\n|\r/g, ""));
 				});
 				xhr.onload = () => res(xhr);
 				xhr.onerror = (e) => err(e, xhr);
