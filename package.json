@@ -1,6 +1,6 @@
 {
 	"name": "discord-kaios-backend",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "The backend used for the Unofficial Discord App made by Frank128",
 	"dependencies": {
 		"ws": "^8.6.0",
