@@ -9,7 +9,7 @@
 		}
 		get baseHeaders() {
 			return {
-				"Content-Type": "application/json",
+				[typeof require === "function" ? "content-type" : "Content-Type"]: "application/json",
 			};
 		}
 
