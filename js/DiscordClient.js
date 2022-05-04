@@ -2,10 +2,10 @@ var discord = new DiscordXHR();
 
 var discordGateway = new DiscordGateway({ debug: true });
 
-function listChannel() {
-	var chview = document.getElementById("chview");
+function listChannel(opts = { dm: true }) {
+	let focus = null;
 
-	discord.getChannelsDM().then((raw) => {
+	discord["getChannels" + (opts.dm ? "DM" : "")]().then((raw) => {
 		let channels = raw.map(function (x) {
 			var name =
 				x.name ||
@@ -17,71 +17,74 @@ function listChannel() {
 			return { name: name, channel: x };
 		});
 
-		var list = document.createElement("ul");
-		list.id = "chlist";
+		var list = getId("chlist");
+		list.innerHTML = "";
 
-		var nav = function (evt) {
-				var ix = Array.prototype.indexOf.apply(list.children, [document.activeElement]);
-
-				console.log(evt.key, ix);
-
-				switch (evt.key) {
-					case "ArrowDown":
-					case "ArrowRight": {
-						ix = (ix + 1) % list.children.length;
-						break;
-					}
-
-					case "ArrowUp":
-					case "ArrowLeft": {
-						ix = (list.children.length + ix - 1) % list.children.length;
-						break;
-					}
-
-					default: {
-						return;
-					}
-				}
-
-				list.children[ix].focus();
-			},
-			focus = null;
+		if (opts.dm) {
+			let header = document.createElement("div");
+			header.className = "separator";
+			header.innerText = "direct messages";
+			list.appendChild(header);
+		}
 
 		channels.forEach((a) => {
-			var item = document.createElement("a");
-			item.innerText = a.name;
-			item.setAttribute("channel", a.channel.id);
-			item.href = "#chview";
-			item.id = "msg" + a.channel.id;
-			item.addEventListener("keydown", nav);
-			item.addEventListener("click", function () {
-				document.documentElement.classList.remove("chlist");
-				document.body.removeChild(list);
-				loadChannel({ id: this.getAttribute("channel") });
-			});
+			let item = document.createElement("div");
+			item.tabIndex = 0;
+			let dataset = item.dataset;
+			dataset.type = opts.dm ? "dm" : "text"; // temp
+			dataset.channel = a.channel.id;
 
-			if (a.channel.id == chview.getAttribute("channel")) {
-				focus = item;
+			// item.innerText = a.name;
+			// item.setAttribute("channel", a.channel.id);
+			// item.href = "#chview";
+			// item.id = "msg" + a.channel.id;
+
+			let m = document.createElement("div");
+			m.dataset.mentions = 0; // temp
+			item.appendChild(m);
+
+			if (opts.dm) {
+				let av = document.createElement("div");
+				av.className = "avatar";
+				av.dataset.status = "offline";
+				item.appendChild(av);
+
+				if (a.channel.recipients && a.channel.recipients[0].avatar) {
+					let { id, avatar } = a.channel.recipients[0];
+					item.style = `--default-avatr: url(https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32)`;
+				}
 			}
+
+			if (false) {
+				// temp
+				let s = document.createElement("div");
+				s.className = "subtext";
+				s.innerText = "temp status";
+				item.appendChild(s);
+			}
+
+			let text = document.createElement("div");
+			text.className = "text";
+			text.innerText = a.name;
+			item.appendChild(text);
+
+			// if (a.channel.id == chview.getAttribute("channel")) {
+			// 	focus = item;
+			// }
 
 			list.appendChild(item);
 		});
 
-		document.documentElement.classList.add("chlist");
-		document.body.appendChild(list);
-
-		(focus || list.children[0]).focus();
+		(focus || list.qs("[data-type]")).focus();
 	});
 }
 
 function loadChannel(channel) {
-	var chname = document.getElementById("chname");
-	var chview = document.getElementById("chview");
+	var chname = getId("chname");
+	var msg_con = getId("message_container");
 
-	chview.setAttribute("channel", channel.id);
-	while (chview.children.length > 3) {
-		chview.removeChild(chview.children[3]);
-	}
+	let chview = getId("chview");
+	chview.dataset.channel = channel.id;
 
 	discord.getChannel(channel.id).then((ch) => {
 		chname.innerText =
@@ -93,7 +96,7 @@ function loadChannel(channel) {
 				.join(", ");
 
 		var elem, lastSender;
-		var addMessage = function (msg) {
+		function addMessage(msg) {
 			if (lastSender != msg.author.id) {
 				lastSender = msg.author.id;
 				elem = document.createElement("div");
@@ -103,21 +106,20 @@ function loadChannel(channel) {
 					? discord.getAvatarURL(msg.author.id, msg.author.avatar).then((a) => {
 							elem.style.backgroundImage = 'url("' + a + '")';
 					  })
-					: (elem.style.backgroundImage = 'url("/img/icons/icon-56x.png")');
+					: (elem.style.backgroundImage = 'url("/css/default.png")');
 
 				var bold = document.createElement("b");
 				bold.innerText = msg.author.username + "\n";
 				elem.appendChild(bold);
 
-				chview.appendChild(elem);
+				msg_con.appendChild(elem);
 			}
 
 			var span = document.createElement("div");
-			span.classList.add("message-indiv");
 			span.id = "msg" + msg.id;
 			span.innerText = msg.content;
 			elem.appendChild(span);
-		};
+		}
 
 		discord.getMessages(channel.id, 15).then((messages) => {
 			messages.reverse().forEach(addMessage);
@@ -126,26 +128,59 @@ function loadChannel(channel) {
 				if (evt.channel_id != channel.id) return;
 
 				addMessage(evt);
-				chview.scrollTop = chview.scrollHeight;
+				msg_con.scrollTop = msg_con.scrollHeight;
 			});
 		});
 	});
 }
 
-function selectTextbox() {
-	var s = !document.documentElement.classList.contains("chlist");
+function loadServers() {
+	let servers = qs("#srvrs .servers");
+	servers.innerHTML = "";
 
-	var writert = document.getElementById("writert");
-	if (s && writert != document.activeElement) {
-		writert.select();
+	function server_icon(obj) {
+		let el = document.createElement("div");
+		let { dataset } = el;
+		el.tabIndex = 0;
+		dataset.mentions = 0; // temp
+		dataset.id = obj.id;
+		el.classList.add("server-icon");
+		if (obj.icon) el.style = `--server_url: url(${obj.icon})`;
+		else {
+			el.classList.add("no_icon");
+			let split = obj.name.split(" ").map((a) => (a[0] || "").toLowerCase());
+			el.innerText = (split[0] || "") + (split[1] || "");
+		}
+		return el;
 	}
 
-	setTimeout(selectTextbox, 125);
+	function createFolder(obj) {
+		let el = document.createElement("div");
+		let { dataset } = el;
+		el.tabIndex = 0;
+		dataset.mentions = 0; // temp
+		dataset.id = obj.id;
+		dataset.hidden = false;
+		el.classList.add("server-folder");
+
+		el.innerHTML = '<div class="server-folder-icon" tabindex="0"></div>';
+
+		obj.array.forEach((a) => {
+			el.appendChild(server_icon(a));
+		});
+		return el;
+	}
+
+	discord.getServers().then((_servers) => {
+		_servers.forEach((a) => {
+			servers.appendChild(a.folder ? createFolder(a) : server_icon(a));
+		});
+	});
 }
 
 function init() {
-	var chview = document.getElementById("chview");
-	var writert = document.getElementById("writert");
+	var chview = getId("chview");
+	var writert = getId("writert");
 
 	discordGateway.init();
 
@@ -198,7 +233,8 @@ function login(token, save) {
 
 	init();
 	listChannel();
-	selectTextbox();
+	switchPages("chlist");
+	loadServers();
 }
 
 window.addEventListener("DOMContentLoaded", function () {
@@ -213,3 +249,82 @@ window.addEventListener("DOMContentLoaded", function () {
 		console.log("     does not, relaunch the app and enjoy.");
 	}
 });
+
+// cyan's code
+
+function getCaretPosition(editableDiv) {
+	var caretPos = 0,
+		sel,
+		range;
+
+	sel = window.getSelection();
+	if (sel.rangeCount) {
+		range = sel.getRangeAt(0);
+		if (range.commonAncestorContainer.parentNode == editableDiv) {
+			caretPos = range.endOffset;
+		}
+	}
+
+	return caretPos;
+}
+
+var focusTimeout;
+
+window.addEventListener("keydown", (e) => {
+	let { key, target } = e;
+
+	let writert = getId("writert");
+
+	if (
+		((key == "ArrowUp" && (getCaretPosition(writert) != writert.innerText.length - 1 || writert.innerText.length - 1 == 0)) ||
+			(key == "ArrowDown" && (getCaretPosition(writert) != 0 || writert.innerText.length - 1 == 0))) &&
+		!e.repeat &&
+		target.id == "writert"
+	) {
+		let caret = getCaretPosition(writert);
+		let contain = getId("message_container");
+
+		if (caret == 0) {
+			contain.focus();
+		} else if (caret == writert.innerText.length - 1) {
+			contain.focus();
+		}
+	}
+
+	setTimeout(() => {
+		if ((key == "ArrowUp" || key == "ArrowDown") && target.id == "message_container") {
+			let text = writert;
+			if (target.scrollHeight - target.scrollTop === target.clientHeight) {
+				text.focus();
+			} else if (target.scrollTop === 0) {
+				text.focus();
+			}
+		}
+	}, 50);
+
+	if (key == "ArrowRight" && target.id == "message_container") writert.focus();
+});
+
+getId("writert").onfocus = () => {
+	changeSoftKeys(["Send", "enter", "Options"]);
+};
+
+getId("message_container").onfocus = () => {
+	changeSoftKeys(["Channels", "send", "Options"]);
+};
+
+function changeSoftKeys(arr) {
+	[qs("footer").children].forEach((a, i) => (a.innerHTML = arr[i]));
+}
+
+function switchPages(g) {
+	qsa("#chview,#chlist,#srvrs").forEach((a) => a.classList.remove("selected"));
+
+	getId(g).className = "selected";
+
+	if (g == "chview") {
+		setTimeout(() => {
+			getId("writert").focus();
+		}, 500);
+	}
+}

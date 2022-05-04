@@ -81,6 +81,38 @@
 			return this.getChannels("users/@me");
 		}
 
+		getServers() {
+			return new Promise((res) => {
+				this.xhrRequestJSON("GET", "users/@me/guilds", {
+					authorization: this.token,
+				}).then((_guilds) => {
+					let guilds = _guilds.map((a) => {
+						a.icon = a.icon ? `https://cdn.discordapp.com/icons/${a.id}/${a.icon}.jpg?size=48` : null;
+						return a;
+					});
+					this.getSettings().then((settings) => {
+						let sort = settings.guild_folders.map((a) => {
+							let { name, guild_ids, id } = a;
+							if (guild_ids.length == 1) return guilds.find((e) => e.id == guild_ids[0]);
+							return {
+								folder: true,
+								name,
+								id,
+								array: guild_ids.map((a) => guilds.find((e) => e.id == a)),
+							};
+						});
+						res(sort);
+					});
+				});
+			});
+		}
+
+		getSettings() {
+			return this.xhrRequestJSON("GET", "users/@me/settings", {
+				authorization: this.token,
+			});
+		}
+
 		getMessages(channel, count) {
 			return this.xhrRequestJSON("GET", "channels/" + channel + "/messages?limit=" + count, {
 				authorization: this.token,

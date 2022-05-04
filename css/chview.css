@@ -1,0 +1,217 @@
+#chview header {
+	font-size: 1.6rem;
+	top: 0;
+	line-height: 3rem;
+	padding: 0 1.6rem;
+	border-bottom: solid 1px var(--chview-shadow);
+}
+
+#chview header {
+	font-weight: bold;
+}
+
+#chview header [data-status]:not([data-status=""]) {
+	display: inline-block;
+	margin-bottom: 0.3rem;
+	width: 0.5rem;
+	height: 0.5rem;
+}
+
+#chview header [data-status="mobile_online"]::after {
+	height: 1.3rem !important;
+	border-radius: 23% !important;
+	bottom: 8px !important;
+}
+
+#chview header [data-status=""] {
+	display: none;
+}
+
+#chview header [data-status]::after {
+	background-size: 0.7rem;
+	background-position: 1.3px;
+	width: 1rem;
+	height: 1rem;
+	border-radius: 50%;
+	bottom: 9px;
+	right: auto;
+	left: 13px;
+	background-color: var(--chview-shadow);
+}
+
+#composer .message {
+	background-repeat: no-repeat;
+	background-position: 0.4rem 0.4rem;
+	background-size: 2.4rem 2.4rem;
+	padding-left: 3.2rem;
+	min-height: 3.2rem;
+	z-index: 5;
+	font-size: 1.2rem;
+	padding-bottom: 1rem;
+}
+
+.message b {
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	display: block;
+	font-size: 1.29rem;
+}
+
+#chview,
+#composer,
+#chview header,
+#chview footer {
+	position: fixed;
+	width: 100vw;
+}
+
+#chview header,
+#chview footer {
+	height: 3rem;
+}
+
+#chview {
+	background-color: var(--chview-bkgrnd);
+	color: var(--chview-frgrnd);
+
+	height: 100vh;
+	bottom: 0;
+	left: 0;
+	right: 0;
+}
+
+#composer #writer {
+	box-sizing: border-box;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	border-top: solid 1px var(--chview-shadow);
+}
+
+#composer #writer #writert {
+	width: 100%;
+	padding: 0.2rem 0.9rem;
+	box-sizing: border-box;
+	font-size: 1.2rem;
+	background-color: var(--chview-bkgrn2);
+	color: var(--chview-frgrnd);
+	border-radius: 0.5rem;
+	outline: none !important;
+	max-height: calc(1.6rem * 4);
+	min-height: 2.3rem;
+	overflow: auto;
+	word-wrap: break-word;
+}
+
+#composer,
+#chview {
+	overflow: hidden;
+}
+
+#composer {
+	height: calc(100vh - 6rem);
+	bottom: 3rem;
+	display: flex;
+	flex-flow: column;
+}
+
+#composer #writer {
+	flex: 0 1 auto;
+}
+
+#composer #message_container {
+	overflow: auto;
+	flex: 1 1 auto;
+}
+
+#composer .message {
+	word-wrap: break-word;
+}
+
+#chview footer {
+	bottom: 0;
+}
+
+/* Software Keys */
+
+footer,
+footer.icon {
+	box-sizing: border-box;
+	padding: 0.5rem;
+	column-gap: 0.5rem;
+	/* grid-gap is an old way of saying column-gap */
+	grid-gap: 0.5rem;
+	display: grid;
+	height: 3rem;
+	background-color: var(--chview-bkgrnd);
+	border-top: solid 1px var(--chview-shadow);
+	color: white;
+}
+
+footer:not(.icon) {
+	overflow: hidden;
+	vertical-align: middle;
+	height: 2rem;
+}
+
+footer .left {
+	font-size: 1.4rem;
+	font-weight: 600;
+	text-align: start;
+}
+
+footer .center {
+	font-size: 1.7rem;
+	font-weight: 700;
+	text-align: center;
+	text-transform: uppercase;
+	margin-top: -2px;
+}
+
+footer .right {
+	font-size: 1.4rem;
+	font-weight: 600;
+	text-align: end;
+}
+
+@media only screen and (orientation: portrait) {
+	footer {
+		grid-template-columns: 7.2rem 7.6rem 7.2rem;
+	}
+}
+
+@media only screen and (orientation: portrait) {
+	footer.icon {
+		grid-template-columns: 9.8rem 2.4rem 9.8rem;
+	}
+}
+
+@media screen and (orientation: landscape) {
+	footer {
+		grid-template-columns: 9.6rem 10.8rem 9.6rem;
+	}
+}
+
+@media screen and (orientation: landscape) {
+	footer.icon {
+		grid-template-columns: 13.8rem 2.4rem 13.8rem;
+	}
+}
+
+.emoji {
+	position: relative;
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+}
+
+.emoji::after {
+	content: "";
+	position: absolute;
+	background-image: var(--emoji_url);
+	width: 16px;
+	height: 16px;
+	top: 0.3rem;
+}

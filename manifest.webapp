@@ -1,31 +1,22 @@
 {
-  "version": "0.1.1",
-  "name": "Discord",
-  "description": "Discord Client for KaiOS",
-  "launch_path": "/index.html",
-  "icons": {
-    "16": "/img/icons/icon-16x.png",
-    "32": "/img/icons/icon-32x.png",
-    "48": "/img/icons/icon-48x.png",
-    "56": "/img/icons/icon-56x.png",
-    "60": "/img/icons/icon-60x.png",
-    "64": "/img/icons/icon-64x.png",
-    "112": "/img/icons/icon-112x.png",
-    "128": "/img/icons/icon-128x.png",
-    "256": "/img/icons/icon-256x.png"
-  },
-  "developer": {
-    "name": "John Jelatis"
-  },
-  "type": "privileged",
-  "permissions": {
-    "systemXHR": {
-      "description": "Required to access Discord's Server"
-    }
-  },
-  "installs_allowed_from": [
-    "*"
-  ],
-  "locales": {},
-  "default_locale": "en"
+	"version": "0.1.1",
+	"name": "Discord",
+	"description": "Discord Client for KaiOS",
+	"launch_path": "/index.html",
+	"icons": {
+		"56": "/css/56px.png",
+		"112": "/css/112px.png"
+	},
+	"developer": {
+		"name": "John Jelatis"
+	},
+	"type": "privileged",
+	"permissions": {
+		"systemXHR": {
+			"description": "Required to access Discord's Server"
+		}
+	},
+	"installs_allowed_from": ["*"],
+	"locales": {},
+	"default_locale": "en"
 }
