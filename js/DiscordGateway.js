@@ -1,22 +1,23 @@
 ((exports) => {
-	// temporary
-	function debug() {
-		console.log("[gateway] " + Array.from(arguments).join("\t"));
-	}
-
 	let WebSocket = typeof require == "function" ? require("ws") : window.WebSocket;
 	class DiscordGateway {
-		constructor() {
+		constructor(options) {
 			this.token = null;
 			this.ws = null;
 			this.persist = null;
 			this.events = {};
+			this._debug = options && options.debug === true ? true : false;
 		}
 		// i don't understand why this has to be a get function...
 		// i'm just gonna follow it anyways
 		get streamURL() {
 			return "wss://gateway.discord.gg/?v=9&encoding=json";
 		}
+
+		debug() {
+			if (this._debug === true) console.log("[gateway] ", ...arguments);
+		}
+
 		addEventListener(name, callback) {
 			this.events[name] = callback;
 		}
@@ -32,7 +33,7 @@
 		handlePacket(message) {
 			var packet = JSON.parse(message.data);
 
-			debug("Handling packet with OP " + packet.op + "...");
+			this.debug("Handling packet with OP ", packet.op);
 
 			var callbacks = {
 				0: this.handlePacketDispatch,
@@ -42,11 +43,11 @@
 			};
 
 			if (packet.op in callbacks) callbacks[packet.op].apply(this, [packet]);
-			else debug("OP " + packet.op + "not found!");
+			else this.debug("OP " + packet.op + "not found!");
 		}
 		handlePacketDispatch(packet) {
 			this.persist.sequence_num = packet.s;
-			debug("dispatch:", JSON.stringify(packet, null, 4));
+			this.debug("dispatch:", packet);
 			switch (packet.t) {
 				case "MESSAGE_CREATE": {
 					this.emit("message", packet.d);
@@ -55,7 +56,7 @@
 			}
 		}
 		handlePacketInvalidSess(packet) {
-			debug("sess inv:", JSON.stringify(packet, null, 4));
+			this.debug("sess inv:", packet);
 			this.ws.close();
 		}
 
@@ -63,15 +64,15 @@
 			var self = this,
 				ws = this.ws;
 
-			debug("Sending initial heartbeat...");
+			this.debug("Sending initial heartbeat...");
 			self.send({
 				op: 1, // HEARTBEAT
 				d: self.persist.sequence_num || null,
 			});
 
-			var interval = setInterval(function () {
+			var interval = setInterval(() => {
 				if (ws != self.ws) return clearInterval(interval);
-				debug("Sending heartbeat...");
+				this.debug("Sending heartbeat...");
 
 				self.send({
 					op: 1, // HEARTBEAT
@@ -106,12 +107,12 @@
 
 			this.persist = {};
 
-			debug("Connecting to gateway...");
+			this.debug("Connecting to gateway...");
 			this.ws = new WebSocket(this.streamURL);
 
 			this.ws.addEventListener("message", this.handlePacket.bind(this));
-			this.ws.addEventListener("open", function () {
-				debug("Sending Identity [OP 2]...");
+			this.ws.addEventListener("open", () => {
+				this.debug("Sending Identity [OP 2]...");
 			});
 			this.ws.addEventListener("close", function (evt) {
 				self.emit("close", evt);

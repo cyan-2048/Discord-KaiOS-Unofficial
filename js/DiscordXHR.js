@@ -1,5 +1,5 @@
 ((exports) => {
-	let XMLHttpRequest = typeof require === "function" ? require("w3c-xmlhttprequest").XMLHttpRequest : window.XMLHttpRequest;
+	let XMLHttpRequest = typeof require === "function" ? require("xmlhttprequest").XMLHttpRequest : window.XMLHttpRequest;
 	class DiscordXHR {
 		constructor() {
 			this.token = null;
@@ -9,7 +9,7 @@
 		}
 		get baseHeaders() {
 			return {
-				"content-type": "application/json",
+				"Content-Type": "application/json",
 			};
 		}
 
@@ -28,18 +28,18 @@
 				var xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
 				xhr.open(method, this.baseURL + path, true);
 
-				var o = Object.assign({}, baseHeaders, headers);
+				var o = Object.assign({}, this.baseHeaders, headers);
 				Object.keys(o).forEach((a) => {
 					xhr.setRequestHeader(a, o[a]);
 				});
-				xhr.onload = res;
-				xhr.onerror = err;
+				xhr.onload = () => res(xhr);
+				xhr.onerror = (e) => err(e, xhr);
 				xhr.send(dataString);
 			});
 		}
 
 		xhrRequestJSON() {
-			return this.xhrRequest(...arguments).then((r) => r.json());
+			return this.xhrRequest(...arguments).then((r) => JSON.parse(r.responseText));
 		}
 
 		sendMessage(channel, message) {
@@ -56,10 +56,13 @@
 			);
 		}
 
-		getAvatarURL(userID, avatar) {
-			avatar = avatar || this.getProfile(userID).user.avatar;
-
-			return "https://cdn.discordapp.com/avatars/" + userID + "/" + avatar + ".png?size=24";
+		getAvatarURL(userID, avatarID) {
+			return new Promise((res) => {
+				function terminate(avatar = avatarID) {
+					res("https://cdn.discordapp.com/avatars/" + userID + "/" + avatar + ".png?size=24");
+				}
+				avatarID ? terminate() : this.getProfile(userID).then((a) => terminate(a.user.avatar));
+			});
 		}
 
 		getChannel(channelID) {

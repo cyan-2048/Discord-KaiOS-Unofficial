@@ -1,19 +1,14 @@
 lockfileVersion: 5.3
 
 specifiers:
-  w3c-xmlhttprequest: ^3.0.4
   ws: ^8.6.0
+  xmlhttprequest: ^1.8.0
 
 dependencies:
-  w3c-xmlhttprequest: 3.0.4
   ws: 8.6.0
+  xmlhttprequest: 1.8.0
 
 packages:
-
-  /w3c-xmlhttprequest/3.0.4:
-    resolution: {integrity: sha512-GOR3PNrFVioJtxb+VR1kp80+UM89ga85akLRYVZX7fmaQTn/kkj9Q18MhNoGtvRJ2ez5i77EpQ0hNBB7+e/RBg==}
-    engines: {node: '>= 10.13.0'}
-    dev: false
 
   /ws/8.6.0:
     resolution: {integrity: sha512-AzmM3aH3gk0aX7/rZLYvjdvZooofDu3fFOzGqcSnQ1tOcTWwhM/o+q++E8mAyVVIyUdajrkzWUGftaVSDLn1bw==}
@@ -26,4 +21,9 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+    dev: false
+
+  /xmlhttprequest/1.8.0:
+    resolution: {integrity: sha1-Z/4HXFwk/vOfnWX197f+dRcZaPw=}
+    engines: {node: '>=0.4.0'}
     dev: false
