@@ -16,7 +16,7 @@ discordGateway.addEventListener("close", function () {
 
 discordGateway.init();
 */
-/*
+
 (async () => {
 	let channels = await discord.getChannelsDM();
 	console.log("await discord.getChannelsDM():");
@@ -33,5 +33,3 @@ discordGateway.init();
 		})
 		.forEach((a) => console.log(a));
 })();
-*/
-discord.sendMessage("846181656514658304", "t!rep 733929955099934741");
