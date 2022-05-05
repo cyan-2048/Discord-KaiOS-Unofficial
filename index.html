@@ -10,69 +10,34 @@
 		<link rel="stylesheet" href="css/chview.css" />
 		<link rel="stylesheet" href="css/srvrs.css" />
 		<script src="js/polyfills.js"></script>
+		<script src="js/spatial_navigation.js"></script>
 		<script defer src="js/DiscordGateway.js"></script>
 		<script defer src="js/DiscordXHR.js"></script>
 		<script defer src="js/DiscordClient.js"></script>
 	</head>
 	<body>
 		<div id="srvrs">
-			<div class="server-icon selected" tabindex="-1" data-mentions="1" data-role="dms"></div>
-			<div class="servers">
-				<div
-					class="server-icon"
-					data-unread=""
-					data-mentions="0"
-					tabindex="-1"
-					style="--server_url: url('https://cdn.discordapp.com/icons/804887072900382782/86b09a82e64eefd72b8f70c7e9f95784.png?size=48')"
-				></div>
-				<div
-					class="server-icon"
-					data-unread=""
-					data-mentions="4"
-					tabindex="-1"
-					style="--server_url: url('https://cdn.discordapp.com/icons/920067277997633577/ec097d9e4b3d5eebc15d4e58a22d72fb.png?size=48')"
-				></div>
-				<div
-					class="server-icon"
-					data-unread=""
-					data-mentions="2048"
-					tabindex="-1"
-					style="--server_url: url('https://cdn.discordapp.com/icons/810729189064835093/524dcf44094857be8c720d49ddc94049.png?size=48')"
-				></div>
-				<div
-					class="server-icon"
-					data-mentions="0"
-					tabindex="-1"
-					style="--server_url: url('https://cdn.discordapp.com/icons/472006912846594048/b911c33b7024f3ec4d653b7b3eca3cf6.png?size=48')"
-				></div>
-
-				<!-- folders work by toggling the data-hidden boolean -->
-				<div class="server-folder" data-mentions="7" tabindex="-1" data-hidden="false">
-					<div class="server-folder-icon" tabindex="-1"></div>
-					<div data-mentions="3" data-unread="" tabindex="-1" class="server-icon no_icon">yes3</div>
-					<div data-mentions="4" data-unread="" tabindex="-1" class="server-icon no_icon">hai</div>
-					<div data-mentions="0" tabindex="-1" class="server-icon no_icon">fold</div>
-				</div>
-			</div>
+			<div class="server-icon selected" tabindex="0" data-mentions="0" data-role="dms"></div>
+			<div class="servers"></div>
 		</div>
 
 		<div id="chlist"></div>
 
 		<div id="chview">
 			<header>
-				<span status="mobile_online"></span>
-				<span id="chname">Cyan</span>
+				<span data-status="offline"></span>
+				<span id="chname">Loading...</span>
 			</header>
 			<div id="composer">
-				<div id="message_container" tabindex="-1"></div>
+				<div id="message_container" tabindex="0"></div>
 				<div id="writer">
-					<div id="writert" contenteditable="true"><br /></div>
+					<div id="writert" contenteditable="true"></div>
 				</div>
 			</div>
 			<footer>
-				<div class="left"></div>
-				<div class="center"></div>
-				<div class="right"></div>
+				<div></div>
+				<div></div>
+				<div></div>
 			</footer>
 		</div>
 	</body>

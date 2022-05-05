@@ -59,7 +59,7 @@
 		getAvatarURL(userID, avatarID) {
 			return new Promise((res) => {
 				function terminate(avatar = avatarID) {
-					res("https://cdn.discordapp.com/avatars/" + userID + "/" + avatar + ".png?size=24");
+					res("https://cdn.discordapp.com/avatars/" + userID + "/" + avatar + ".png");
 				}
 				avatarID ? terminate() : this.getProfile(userID).then((a) => terminate(a.user.avatar));
 			});

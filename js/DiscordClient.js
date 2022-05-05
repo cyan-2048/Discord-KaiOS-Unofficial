@@ -1,38 +1,98 @@
+const sn = SpatialNavigation;
 var discord = new DiscordXHR();
 
 var discordGateway = new DiscordGateway({ debug: true });
 
 function listChannel(opts = { dm: true }) {
 	let focus = null;
+	let list = getId("chlist");
 
-	discord["getChannels" + (opts.dm ? "DM" : "")]().then((raw) => {
-		let channels = raw.map(function (x) {
-			var name =
-				x.name ||
-				x.recipients
-					.map(function (x) {
-						return x.username;
-					})
-					.join(", ");
-			return { name: name, channel: x };
-		});
+	function bye() {
+		switchPages("chlist");
+		(focus || list.qs("[data-type]")).focus();
+	}
 
-		var list = getId("chlist");
-		list.innerHTML = "";
+	if (list.dataset.channel == (opts.dm ? "dms" : opts.id)) return bye();
+	list.innerHTML = "";
+	list.dataset.channel = opts.dm ? "dms" : opts.id;
 
-		if (opts.dm) {
+	discord["getChannels" + (opts.dm ? "DM" : "")]("guilds/" + opts.id).then((raw) => {
+		let channels = opts.dm
+			? raw.map(function (x) {
+					var name =
+						x.name ||
+						x.recipients
+							.map(function (x) {
+								return x.username;
+							})
+							.join(", ");
+					return { name: name, id: x.id, channel: x };
+			  })
+			: (() => {
+					let position = (a, b) => a.position - b.position;
+					let _channels = {
+						0: [],
+					};
+					let separators = [];
+					let channels_id = {};
+					raw.forEach((a) => {
+						if (a.type == 4) {
+							_channels[a.name] = [];
+							channels_id[a.id] = a.name;
+							separators.push(a);
+						}
+					});
+					separators.sort(position);
+					separators = separators.map((a) => a.name);
+					separators.unshift(0);
+
+					raw.forEach((a) => {
+						if (a.type == 0 || a.type == 5) {
+							let id = a.parent_id;
+							(_channels[id ? channels_id[id] : 0] || []).push(a);
+						}
+					});
+
+					Object.keys(_channels).forEach((a) => {
+						if (_channels[a].length == 0) {
+							_channels[a] = null; // playing safe
+						} else {
+							_channels[a].sort(position);
+						}
+					});
+
+					let final = [];
+
+					separators.forEach((a) => {
+						if (_channels[a]) {
+							final.push({ type: "separator", name: a });
+							final = final.concat(_channels[a]);
+						}
+					});
+
+					return final;
+			  })();
+
+		function separator(text) {
 			let header = document.createElement("div");
 			header.className = "separator";
-			header.innerText = "direct messages";
-			list.appendChild(header);
+			header.innerText = text;
+			return header;
+		}
+
+		if (opts.dm) {
+			list.appendChild(separator("direct messages"));
+			channels = channels.sort((a, b) => Number(b.channel.last_message_id) - Number(a.channel.last_message_id));
 		}
 
 		channels.forEach((a) => {
+			if (a.type == "separator") return list.appendChild(separator(a.name));
+
 			let item = document.createElement("div");
 			item.tabIndex = 0;
 			let dataset = item.dataset;
-			dataset.type = opts.dm ? "dm" : "text"; // temp
-			dataset.channel = a.channel.id;
+			dataset.type = opts.dm ? "dm" : a.type == 5 ? "announce" : "text"; // temp
+			dataset.channel = a.id;
 
 			// item.innerText = a.name;
 			// item.setAttribute("channel", a.channel.id);
@@ -43,24 +103,33 @@ function listChannel(opts = { dm: true }) {
 			m.dataset.mentions = 0; // temp
 			item.appendChild(m);
 
+			function subtext(text) {
+				let s = document.createElement("div");
+				s.className = "subtext";
+				s.innerText = text;
+				return s;
+			}
+
 			if (opts.dm) {
 				let av = document.createElement("div");
 				av.className = "avatar";
 				av.dataset.status = "offline";
 				item.appendChild(av);
 
-				if (a.channel.recipients && a.channel.recipients[0].avatar) {
-					let { id, avatar } = a.channel.recipients[0];
-					item.style = `--default-avatr: url(https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32)`;
+				let { id, icon, recipients } = a.channel;
+
+				if (a.channel.icon) {
+					item.style = `--default-avatr: url(https://cdn.discordapp.com/channel-icons/${id}/${icon}.jpg?size=32)`;
+					item.appendChild(subtext(recipients.length + " Members"));
+				} else if (recipients && recipients[0].avatar) {
+					let { id, avatar } = recipients[0];
+					item.style = `--default-avatr: url(https://cdn.discordapp.com/avatars/${id}/${avatar}.jpg?size=32)`;
 				}
 			}
 
 			if (false) {
 				// temp
-				let s = document.createElement("div");
-				s.className = "subtext";
-				s.innerText = "temp status";
-				item.appendChild(s);
+				item.appendChild(subtext("temporary"));
 			}
 
 			let text = document.createElement("div");
@@ -75,13 +144,15 @@ function listChannel(opts = { dm: true }) {
 			list.appendChild(item);
 		});
 
-		(focus || list.qs("[data-type]")).focus();
+		bye();
 	});
 }
 
 function loadChannel(channel) {
 	var chname = getId("chname");
 	var msg_con = getId("message_container");
+
+	msg_con.innerHTML = "";
 
 	let chview = getId("chview");
 	chview.dataset.channel = channel.id;
@@ -102,11 +173,9 @@ function loadChannel(channel) {
 				elem = document.createElement("div");
 				elem.classList.add("message");
 
-				msg.author.avatar
-					? discord.getAvatarURL(msg.author.id, msg.author.avatar).then((a) => {
-							elem.style.backgroundImage = 'url("' + a + '")';
-					  })
-					: (elem.style.backgroundImage = 'url("/css/default.png")');
+				elem.style.backgroundImage = msg.author.avatar
+					? 'url("' + "https://cdn.discordapp.com/avatars/" + msg.author.id + "/" + msg.author.avatar + ".png?size=24" + '")'
+					: "url(/css/default.png)";
 
 				var bold = document.createElement("b");
 				bold.innerText = msg.author.username + "\n";
@@ -123,13 +192,14 @@ function loadChannel(channel) {
 
 		discord.getMessages(channel.id, 15).then((messages) => {
 			messages.reverse().forEach(addMessage);
-
+			msg_con.scrollTop = msg_con.scrollHeight;
 			discordGateway.addEventListener("message", function (evt) {
 				if (evt.channel_id != channel.id) return;
 
 				addMessage(evt);
 				msg_con.scrollTop = msg_con.scrollHeight;
 			});
+			switchPages("chview");
 		});
 	});
 }
@@ -178,75 +248,55 @@ function loadServers() {
 	});
 }
 
-function init() {
-	var chview = getId("chview");
-	var writert = getId("writert");
-
-	discordGateway.init();
-
-	window.addEventListener("keypress", function (e) {
-		switch (e.key) {
-			case "ArrowDown": {
-				chview.scrollTop += 75;
-				break;
-			}
-
-			case "ArrowUp": {
-				chview.scrollTop -= 75;
-				break;
-			}
-
-			case "SoftLeft": {
-				listChannel();
-				break;
-			}
-
-			case "SoftRight": {
-				alert("unimplemented");
-				break;
-			}
-		}
-	});
-
-	writert.addEventListener("keypress", function (evt) {
-		if (evt.key != "Enter") return;
-		if (writert.value.length <= 0) return;
-
-		evt.preventDefault();
-		discord.sendMessage(chview.getAttribute("channel"), writert.value);
-		writert.value = "";
-	});
-}
-
 function login(token, save) {
 	if (save) localStorage.setItem("token", token);
 
 	discord.login(token);
 	discordGateway.login(token);
 
+	let attempts = 0;
 	discordGateway.addEventListener("close", function () {
-		if (confirm("Oh no! Discord Gateway connection has closed! Reconnect?")) {
+		attempts++;
+		function hmm() {
 			discordGateway.login(token);
 			discordGateway.init();
 		}
+		if (attempts == 10) {
+			if (confirm("The Discord gateway closed 10 times already! Do you want to retry connecting?")) {
+				attempts = 0;
+				hmm();
+			} else window.close();
+		} else hmm();
 	});
 
-	init();
+	discordGateway.init();
 	listChannel();
-	switchPages("chlist");
 	loadServers();
 }
 
 window.addEventListener("DOMContentLoaded", function () {
+	function log() {
+		[...arguments].forEach((a) => console.log(a));
+	}
+
 	if (localStorage.getItem("token")) {
 		login(localStorage.getItem("token"));
 	} else {
-		console.log("To login: ");
-		console.log("  1. Get your Discord token");
-		console.log("  2. Run the following function from WebIDE: ");
-		console.log('     login("TOKEN_HERE", true);');
-		console.log("  3. The DM selector should appear. If it");
-		console.log("     does not, relaunch the app and enjoy.");
+		fetch("/token.txt")
+			.then((r) => r.text())
+			.then((r) => {
+				login(r, true);
+			})
+			.catch((e) => {
+				log(
+					"To login: ",
+					"  1. Get your Discord token (you can use https://cyan-2048.github.io/discordo/)",
+					'"  2. Run the following function from WebIDE: ',
+					'"     login("TOKEN_HERE", true);',
+					'"  3. The DM selector should appear. If it',
+					'"     does not, relaunch the app and enjoy.'
+				);
+			});
 	}
 });
 
@@ -268,43 +318,6 @@ function getCaretPosition(editableDiv) {
 	return caretPos;
 }
 
-var focusTimeout;
-
-window.addEventListener("keydown", (e) => {
-	let { key, target } = e;
-
-	let writert = getId("writert");
-
-	if (
-		((key == "ArrowUp" && (getCaretPosition(writert) != writert.innerText.length - 1 || writert.innerText.length - 1 == 0)) ||
-			(key == "ArrowDown" && (getCaretPosition(writert) != 0 || writert.innerText.length - 1 == 0))) &&
-		!e.repeat &&
-		target.id == "writert"
-	) {
-		let caret = getCaretPosition(writert);
-		let contain = getId("message_container");
-
-		if (caret == 0) {
-			contain.focus();
-		} else if (caret == writert.innerText.length - 1) {
-			contain.focus();
-		}
-	}
-
-	setTimeout(() => {
-		if ((key == "ArrowUp" || key == "ArrowDown") && target.id == "message_container") {
-			let text = writert;
-			if (target.scrollHeight - target.scrollTop === target.clientHeight) {
-				text.focus();
-			} else if (target.scrollTop === 0) {
-				text.focus();
-			}
-		}
-	}, 50);
-
-	if (key == "ArrowRight" && target.id == "message_container") writert.focus();
-});
-
 getId("writert").onfocus = () => {
 	changeSoftKeys(["Send", "enter", "Options"]);
 };
@@ -314,17 +327,188 @@ getId("message_container").onfocus = () => {
 };
 
 function changeSoftKeys(arr) {
-	[qs("footer").children].forEach((a, i) => (a.innerHTML = arr[i]));
+	[...qs("footer").children].forEach((a, i) => (a.innerHTML = arr[i]));
 }
 
-function switchPages(g) {
-	qsa("#chview,#chlist,#srvrs").forEach((a) => a.classList.remove("selected"));
-
-	getId(g).className = "selected";
-
-	if (g == "chview") {
-		setTimeout(() => {
-			getId("writert").focus();
-		}, 500);
+var switchPages = (() => {
+	function getScrollParent(node) {
+		if (node == null) return null;
+		if (node.scrollHeight > node.clientHeight) return node;
+		else return getScrollParent(node.parentNode);
 	}
-}
+
+	let current = null;
+	let pages = qsa("#chview,#chlist,#srvrs");
+
+	let _pages = (() => {
+		let obj = {};
+		pages.forEach((a) => {
+			obj[a.id] = a;
+		});
+		return obj;
+	})();
+
+	sn.init();
+	let disabled = true;
+	let _servers = `#srvrs [data-role="dms"], #srvrs .servers > [tabindex]:not([data-hidden="false"]), #srvrs .server-folder[data-hidden="false"] > [tabindex]`;
+
+	let servers = getId("srvrs");
+
+	sn.add({
+		id: "srvrs",
+		selector: _servers,
+		disabled,
+	});
+	sn.add({
+		id: "chlist",
+		selector: `#chlist [tabindex]`,
+		disabled,
+	});
+
+	function switchPages(g) {
+		pages.forEach((a) => a.classList.remove("selected"));
+		_pages[g].className = "selected";
+		if (g == "chview") {
+			setTimeout(() => {
+				getId("writert").focus();
+			}, 500);
+		}
+
+		if (current) sn.disable(current);
+		if (g == "chview") current = null;
+		else {
+			current = g;
+			sn.enable(g);
+		}
+
+		if (g == "srvrs") {
+			let sel = servers.qs(".selected");
+			if (sel) sel.focus();
+			else {
+				let el = servers.qs(_servers);
+				el.classList.add("selected");
+				el.focus();
+			}
+		}
+		if (g == "chlist") {
+			let current = _pages["chview"].dataset.channel;
+			if (current) {
+				let el = _pages["chlist"].qs("[data-channel='" + current + "']");
+				if (el) el.focus();
+				else {
+					actEl().blur();
+					sn.focus();
+				}
+			} else {
+				sn.focus();
+			}
+		}
+	}
+
+	window.addEventListener("sn:focused", (e) => {
+		const rect = actEl().getBoundingClientRect();
+		const elY = rect.top - 0 + rect.height / 2;
+		let parent = getScrollParent(actEl());
+		if (!parent) return;
+		setTimeout(
+			() =>
+				parent.scrollBy({
+					left: 0,
+					top: elY - window.innerHeight / 2,
+					behavior: "smooth",
+				}),
+			40
+		);
+	});
+
+	window.addEventListener("keydown", (e) => {
+		let { key, target } = e;
+
+		let writert = getId("writert");
+
+		let { chview, chlist, srvrs } = _pages;
+
+		if (chview.classList.contains("selected")) {
+			if (key == "SoftLeft") {
+				if (target == writert) {
+					discord.sendMessage(chview.dataset.channel, writert.innerText);
+					writert.innerText = "";
+				} else setTimeout(() => switchPages("chlist"), 100);
+			}
+			if (key == "Backspace") {
+				e.preventDefault();
+				if ((target == writert && (writert.innerText == "" || writert.innerText == "\n")) || target != writert) switchPages("chlist");
+			}
+			if (
+				((key == "ArrowUp" && (getCaretPosition(writert) != writert.innerText.length - 1 || writert.innerText.length - 1 == 0)) ||
+					(key == "ArrowDown" && (getCaretPosition(writert) != 0 || writert.innerText.length - 1 == 0))) &&
+				!e.repeat &&
+				target.id == "writert"
+			) {
+				let caret = getCaretPosition(writert);
+				let contain = getId("message_container");
+
+				if (caret == 0) {
+					contain.focus();
+				} else if (caret == writert.innerText.length - 1) {
+					contain.focus();
+				}
+			}
+
+			setTimeout(() => {
+				if ((key == "ArrowUp" || key == "ArrowDown") && target.id == "message_container") {
+					let text = writert;
+					if (target.scrollHeight - target.scrollTop === target.clientHeight) {
+						text.focus();
+					} else if (target.scrollTop === 0) {
+						text.focus();
+					}
+				}
+			}, 50);
+
+			if (key == "ArrowRight" && target.id == "message_container") writert.focus();
+		} else if (chlist.classList.contains("selected")) {
+			let id = target.dataset.channel;
+			if (key == "Enter") {
+				if (id == chview.dataset.channel) switchPages("chview");
+				else loadChannel({ id });
+			}
+			if (key.includes("Right") && chview.dataset.channel) switchPages("chview");
+			if (key.includes("Left") || key == "Backspace") {
+				e.preventDefault();
+				switchPages("srvrs");
+			}
+		} else if (srvrs.classList.contains("selected")) {
+			let { dataset, classList: cL } = target;
+
+			if (key == "Enter") {
+				if (cL.contains("server-folder")) {
+					dataset.hidden = false;
+					target.children[0].focus();
+				} else if (cL.contains("server-folder-icon")) {
+					let parent = target.parentNode;
+					parent.dataset.hidden = true;
+					parent.focus();
+				} else {
+					let { id, role } = dataset;
+					let dm = role == "dms";
+					if (chlist.dataset.channel == (dm ? "dms" : id)) {
+						switchPages("chlist");
+					} else {
+						let sel = srvrs.qs(".selected");
+						if (sel) sel.classList.remove("selected");
+						target.classList.add("selected");
+						listChannel({ id, dm });
+					}
+				}
+			} else if (key == "ArrowRight") {
+				switchPages("chlist");
+			} else if (key == "Backspace") {
+				e.preventDefault();
+				if (confirm("Are you sure you want to exit the app?")) window.close();
+			}
+		}
+	});
+
+	return switchPages;
+})();

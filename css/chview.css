@@ -97,7 +97,7 @@
 	font-size: 1.2rem;
 	background-color: var(--chview-bkgrn2);
 	color: var(--chview-frgrnd);
-	border-radius: 0.5rem;
+	border-radius: 2px;
 	outline: none !important;
 	max-height: calc(1.6rem * 4);
 	min-height: 2.3rem;
@@ -156,13 +156,13 @@ footer:not(.icon) {
 	height: 2rem;
 }
 
-footer .left {
+footer > *:first-child {
 	font-size: 1.4rem;
 	font-weight: 600;
 	text-align: start;
 }
 
-footer .center {
+footer > *:nth-child(2) {
 	font-size: 1.7rem;
 	font-weight: 700;
 	text-align: center;
@@ -170,7 +170,7 @@ footer .center {
 	margin-top: -2px;
 }
 
-footer .right {
+footer > *:last-child {
 	font-size: 1.4rem;
 	font-weight: 600;
 	text-align: end;
