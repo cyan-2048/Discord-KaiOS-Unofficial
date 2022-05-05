@@ -279,17 +279,15 @@ function login(token, save) {
 		} else hmm();
 	});
 
-	setTimeout(listChannel, 1500);
 	discordGateway.init();
 	loadServers();
+	listChannel({ dm: true });
 
 	setTimeout(() => {
 		if (navigator.userAgent == "Mozilla/5.0 (Mobile; Nokia_800_Tough; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5.2.2") {
-			if (confirm("Did your DMs show up? this userAgent is faulty... press cancel if your dms are showing up...")) {
-				listChannel({ dm: true });
-			}
+			listChannel({ dm: true });
 		}
-	}, 3000);
+	}, 5000);
 }
 
 window.addEventListener("load", function () {
@@ -467,7 +465,10 @@ var switchPages = (() => {
 				if (target == writert) {
 					discord.sendMessage(chview.dataset.channel, writert.innerText);
 					writert.innerText = "";
-				} else setTimeout(() => switchPages("chlist"), 100);
+				} else setTimeout(() => switchPages("chlist"), 50);
+			}
+			if (key == "ArrowLeft" && target != writert) {
+				setTimeout(() => switchPages("chlist"), 50);
 			}
 			if (key == "Backspace") {
 				e.preventDefault();
