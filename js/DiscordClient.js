@@ -270,7 +270,7 @@ function login(token, save) {
 	});
 
 	discordGateway.init();
-	setTimeout(listChannel, 3000);
+	setTimeout(listChannel, 2300);
 	loadServers();
 }
 
@@ -411,20 +411,30 @@ var switchPages = (() => {
 		}
 	}
 
+	let isScrolling = false;
+
+	window.addEventListener("sn:willmove", (e) => {
+		if (isScrolling) e.preventDefault();
+	});
+
 	window.addEventListener("sn:focused", (e) => {
-		const rect = actEl().getBoundingClientRect();
+		if (isScrolling) return;
+		isScrolling = true;
+		let to = actEl();
+		const rect = to.getBoundingClientRect();
 		const elY = rect.top - 0 + rect.height / 2;
-		let parent = getScrollParent(actEl());
-		if (!parent) return;
-		setTimeout(
-			() =>
-				parent.scrollBy({
-					left: 0,
-					top: elY - window.innerHeight / 2,
-					behavior: "smooth",
-				}),
-			40
-		);
+		let parent = getScrollParent(to);
+		if (!parent) return (isScrolling = false);
+
+		parent.scrollBy({
+			left: 0,
+			top: elY - window.innerHeight / 2,
+			behavior: "smooth",
+		});
+
+		setTimeout(() => {
+			isScrolling = false;
+		}, 50);
 	});
 
 	window.addEventListener("keydown", (e) => {
