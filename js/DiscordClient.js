@@ -259,14 +259,21 @@ function login(token, save) {
 
 	let attempts = 0;
 	discordGateway.addEventListener("close", function () {
-		attempts++;
 		function hmm() {
-			discordGateway.login(token);
-			discordGateway.init();
+			if (document.visibilityState == "visible") {
+				attempts++;
+				discordGateway.login(token);
+				discordGateway.init();
+			} else {
+				document.addEventListener("visibilitychange", function a() {
+					document.removeEventListener("visibilitychange", a);
+					hmm();
+				});
+			}
 		}
 		if (attempts == 10) {
 			if (confirm("The Discord gateway closed 10 times already! Do you want to retry connecting?")) {
-				attempts = 0;
+				attempts = -1;
 				hmm();
 			} else window.close();
 		} else hmm();
@@ -275,7 +282,14 @@ function login(token, save) {
 	setTimeout(listChannel, 1500);
 	discordGateway.init();
 	loadServers();
-	console.error("hey igame can you see this?");
+
+	setTimeout(() => {
+		if (navigator.userAgent == "Mozilla/5.0 (Mobile; Nokia_800_Tough; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5.2.2") {
+			if (confirm("Did your DMs show up? this userAgent is faulty... press cancel if your dms are showing up...")) {
+				listChannel({ dm: true });
+			}
+		}
+	}, 3000);
 }
 
 window.addEventListener("load", function () {
