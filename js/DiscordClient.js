@@ -282,7 +282,7 @@ function login(token, save) {
 	discordGateway.init();
 	loadServers();
 	listChannel({ dm: true });
-
+	//idk
 	setTimeout(() => {
 		if (navigator.userAgent == "Mozilla/5.0 (Mobile; Nokia_800_Tough; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5.2.2") {
 			listChannel({ dm: true });
