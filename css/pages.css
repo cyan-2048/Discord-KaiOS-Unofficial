@@ -9,7 +9,7 @@
 	--text-no-mesgs: #72767d;
 	/* text with pings or messages is white */
 	--text-if-muted: #4f545c;
-	--default-avatr: url('/css/default.png');
+	--default-avatr: url("/css/default.png");
 	--color-of-ping: #ed4245;
 }
 
@@ -29,13 +29,13 @@ body {
 
 @font-face {
 	font-family: twemoji;
-	src: url('https://cdn.jsdelivr.net/gh/cyan-2048/cyan-2048@0.0.1/twemoji.ttf');
+	src: url("https://cdn.jsdelivr.net/gh/cyan-2048/cyan-2048@0.0.1/twemoji.ttf");
 }
 
 #chview,
 #chlist,
 #srvrs {
-	transition: transform 0.5s ease;
+	transition: transform 0.4s ease;
 }
 
 #chview {

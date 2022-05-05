@@ -86,7 +86,10 @@ function listChannel(opts = { dm: true }) {
 		}
 
 		channels.forEach((a) => {
-			if (a.type == "separator") return list.appendChild(separator(a.name));
+			if (a.type == "separator") {
+				if (a.name === 0) return;
+				return list.appendChild(separator(a.name));
+			}
 
 			let item = document.createElement("div");
 			item.tabIndex = 0;
@@ -254,6 +257,8 @@ function login(token, save) {
 	discord.login(token);
 	discordGateway.login(token);
 
+	setTimeout(listChannel, 2300);
+
 	let attempts = 0;
 	discordGateway.addEventListener("close", function () {
 		attempts++;
@@ -270,11 +275,10 @@ function login(token, save) {
 	});
 
 	discordGateway.init();
-	setTimeout(listChannel, 2300);
 	loadServers();
 }
 
-window.addEventListener("DOMContentLoaded", function () {
+window.addEventListener("load", function () {
 	function log() {
 		[...arguments].forEach((a) => console.log(a));
 	}
