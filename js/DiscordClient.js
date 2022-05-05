@@ -383,8 +383,14 @@ var switchPages = (() => {
 
 		if (g == "srvrs") {
 			let sel = servers.qs(".selected");
-			if (sel) sel.focus();
-			else {
+			if (sel) {
+				let parent = sel.parentNode;
+				if (parent.classList.contains("server-folder")) {
+					if (parent.dataset.hidden == "true") {
+						parent.focus();
+					} else sel.focus();
+				} else sel.focus();
+			} else {
 				let el = servers.qs(_servers);
 				el.classList.add("selected");
 				el.focus();
