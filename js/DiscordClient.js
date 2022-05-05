@@ -257,8 +257,6 @@ function login(token, save) {
 	discord.login(token);
 	discordGateway.login(token);
 
-	setTimeout(listChannel, 2300);
-
 	let attempts = 0;
 	discordGateway.addEventListener("close", function () {
 		attempts++;
@@ -274,8 +272,10 @@ function login(token, save) {
 		} else hmm();
 	});
 
+	setTimeout(listChannel, 1500);
 	discordGateway.init();
 	loadServers();
+	console.error("hey igame can you see this?");
 }
 
 window.addEventListener("load", function () {
