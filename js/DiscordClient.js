@@ -270,7 +270,7 @@ function login(token, save) {
 	});
 
 	discordGateway.init();
-	listChannel();
+	setTimeout(listChannel, 3000);
 	loadServers();
 }
 
