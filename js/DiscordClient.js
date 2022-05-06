@@ -2,10 +2,13 @@ const sn = SpatialNavigation;
 var discord = new DiscordXHR();
 
 var discordGateway = new DiscordGateway({ debug: true });
+// prettier-ignore
+function hashCode(r){var n,t=String(r),o=0;if(0===t.length)return o;for(n=0;n<t.length;n++)o=(o<<5)-o+t.charCodeAt(n),o|=0;return Array.from(o.toString()).map(r=>"ledoshcyan"[r]).join("")}
 
 function listChannel(opts = { dm: true }) {
 	let focus = null;
 	let list = getId("chlist");
+	let currentChannel = getId("chview").dataset.channel;
 
 	function bye() {
 		switchPages("chlist");
@@ -13,10 +16,10 @@ function listChannel(opts = { dm: true }) {
 	}
 
 	if (list.dataset.channel == (opts.dm ? "dms" : opts.id)) return bye();
-	list.innerHTML = "";
 	list.dataset.channel = opts.dm ? "dms" : opts.id;
 
 	discord["getChannels" + (opts.dm ? "DM" : "")]("guilds/" + opts.id).then((raw) => {
+		list.innerHTML = "";
 		let channels = opts.dm
 			? raw.map(function (x) {
 					var name =
@@ -94,7 +97,7 @@ function listChannel(opts = { dm: true }) {
 			let item = document.createElement("div");
 			item.tabIndex = 0;
 			let dataset = item.dataset;
-			dataset.type = opts.dm ? "dm" : a.type == 5 ? "announce" : "text"; // temp
+			dataset.type = opts.dm ? "dm" : a.type == 5 ? "announce" : "text"; // temp, limited
 			dataset.channel = a.id;
 
 			// item.innerText = a.name;
@@ -140,9 +143,9 @@ function listChannel(opts = { dm: true }) {
 			text.innerText = a.name;
 			item.appendChild(text);
 
-			// if (a.channel.id == chview.getAttribute("channel")) {
-			// 	focus = item;
-			// }
+			if (a.id == currentChannel) {
+				focus = item;
+			}
 
 			list.appendChild(item);
 		});
@@ -169,8 +172,67 @@ function loadChannel(channel) {
 				})
 				.join(", ");
 
-		var elem, lastSender;
-		function addMessage(msg) {
+		function linkify(inputText) {
+			let backticks = {};
+			let blocks = {};
+
+			let output = inputText
+				// back ticks always first
+				.replace(/```([\s\S]*?)```/g, (a, b, c) => {
+					let hash = hashCode(Math.random() + c + b);
+					blocks[hash] = a;
+					return hash;
+				})
+				.replace(/`([\s\S]*?)`/g, (a, b, c) => {
+					let hash = hashCode(Math.random() + c + b);
+					backticks[hash] = a;
+					return hash;
+				})
+
+				// other stuff starts here
+
+				// markdown bold italics
+				.replace(/\*\*\*([\s\S]*?)\*\*\*/g, "<b><i>$1</i></b>")
+				// bold
+				.replace(/\*\*([\s\S]*?)\*\*/g, "<b>$1</b>")
+				// italic
+				.replace(/\*([\s\S]*?)\*/g, "<i>$1</i>")
+				// underline
+				.replace(/__([\s\S]*?)__/g, "<u>$1</u>")
+				//italic (no i can't use | because underline)
+				.replace(/_([\s\S]*?)_/g, "<i>$1</i>")
+				// strikethrough
+				.replace(/~~([\s\S]*?)~~/g, "<s>$1</s>")
+
+				// links/urls
+
+				//URLs starting with http://, https://, or ftp://
+				.replace(/(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gim, '<a href="$1" target="_blank">$1</a>')
+				//URLs starting with "www." (without // before it, or it'd re-link the ones done above).
+				.replace(/(^|[^\/])(www\.[\S]+(\b|$))/gim, '$1<a href="http://$2" target="_blank">$2</a>')
+				//Change email addresses to mailto:: links.
+				.replace(/(([a-zA-Z0-9\-\_\.])+@[a-zA-Z\_]+?(\.[a-zA-Z]{2,6})+)/gim, '<a href="mailto:$1">$1</a>')
+				// discord emojis
+				.replace(
+					/(&lt;a?):\w+:(\d{18}&gt;)?/g,
+					(a) =>
+						`<div class="emoji" style="--emoji_url: url('https://cdn.discordapp.com/emojis/${a.slice(0, -4).split(":").reverse()[0]}.${
+							a.startsWith("&lt;a") ? "gif" : "png"
+						}?size=16')"></div>`
+				);
+			Object.keys(backticks).forEach((a) => {
+				output = output.replace(a, `<code>${backticks[a].slice(0, -1).slice(1)}</code>`);
+			});
+			Object.keys(blocks).forEach((a) => {
+				let res = blocks[a].slice(0, -3).slice(3);
+				if (/^\w+<br>|^<br>/.test(res)) res = res.split("<br>").slice(1).join("<br>");
+				output = output.replace(a, `<pre>${res}</pre>`);
+			});
+			return output;
+		}
+
+		let elem, lastSender;
+		function addMessage(msg, gateway) {
 			if (lastSender != msg.author.id) {
 				lastSender = msg.author.id;
 				elem = document.createElement("div");
@@ -180,17 +242,67 @@ function loadChannel(channel) {
 					? 'url("' + "https://cdn.discordapp.com/avatars/" + msg.author.id + "/" + msg.author.avatar + ".png?size=24" + '")'
 					: "url(/css/default.png)";
 
-				var bold = document.createElement("b");
+				let bold = document.createElement("b");
 				bold.innerText = msg.author.username + "\n";
 				elem.appendChild(bold);
 
 				msg_con.appendChild(elem);
 			}
 
-			var span = document.createElement("div");
+			function makeImage(url) {
+				let el = new Image();
+				el.src = url;
+				return el;
+			}
+
+			function handleEmbed(embed, span) {
+				if (/gifv|image/.test(embed.type)) {
+					if (span.childNodes.length == 1) span.innerHTML = "";
+					return elem.appendChild(makeImage(embed.url + (embed.type == "gifv" ? ".gif" : "")));
+				}
+			}
+
+			function handleAttach(a) {
+				if (a.content_type && a.content_type.startsWith("image/")) {
+					return elem.appendChild(makeImage(a.url));
+				}
+			}
+
+			function diyEmbed(array, span) {
+				array.forEach((a) => {
+					let xhr = new XMLHttpRequest({ mozSystem: true });
+					xhr.open("HEAD", a, true);
+					xhr.onload = () => {
+						try {
+							if (xhr.getResponseHeader("Content-Type").includes("image")) {
+								// untested can't recreate, try catch for now
+								span.insertAdjacentElement("afterend", makeImage(xhr.responseURL));
+							}
+						} catch (e) {
+							alert("diy embed failed please tell cyan about it");
+						}
+					};
+					xhr.send();
+				});
+			}
+
+			let span = document.createElement("div");
 			span.id = "msg" + msg.id;
 			span.innerText = msg.content;
+			console.log(msg);
+			span.innerHTML = linkify(span.innerHTML);
 			elem.appendChild(span);
+			if (msg.attachments && msg.attachments[0]) msg.attachments.forEach(handleAttach);
+			if (msg.embeds && msg.embeds[0]) msg.embeds.forEach((a) => handleEmbed(a, span));
+			if (msg.embeds.length && msg.embeds.length == 0 && gateway) {
+				let links = new Set(
+					span
+						.qsa("a")
+						.map((a) => a.href)
+						.filter((a) => !a.startsWith("mailto:"))
+				);
+				diyEmbed(links, span);
+			}
 		}
 
 		discord.getMessages(channel.id, 15).then((messages) => {
@@ -198,9 +310,8 @@ function loadChannel(channel) {
 			msg_con.scrollTop = msg_con.scrollHeight;
 			discordGateway.addEventListener("message", function (evt) {
 				if (evt.channel_id != channel.id) return;
-
-				addMessage(evt);
-				msg_con.scrollTop = msg_con.scrollHeight;
+				addMessage(evt, true);
+				if (actEl().id == "writert") msg_con.scrollTop = msg_con.scrollHeight;
 			});
 			switchPages("chview");
 		});
@@ -291,6 +402,8 @@ function login(token, save) {
 }
 
 window.addEventListener("load", function () {
+	qs("html").lang = navigator.language;
+
 	function log() {
 		[...arguments].forEach((a) => console.log(a));
 	}
@@ -314,6 +427,30 @@ window.addEventListener("load", function () {
 				);
 			});
 	}
+
+	function initEmoji(link, toSave) {
+		let xhr = new XMLHttpRequest({ mozSystem: true });
+		xhr.open("get", link, true);
+		xhr.responseType = "blob";
+		xhr.onload = () => {
+			let r = xhr.response;
+			let el = document.createElement("style");
+			let url = URL.createObjectURL(r);
+			el.innerHTML = `@font-face { font-family: twemoji; src: url("${url}");}`;
+			document.documentElement.appendChild(el);
+			if (toSave === true) {
+				let reader = new FileReader();
+				reader.readAsDataURL(r);
+				reader.onloadend = () => {
+					localStorage.setItem("emoji-font", reader.result);
+				};
+			}
+		};
+		xhr.send();
+	}
+
+	let emoji = localStorage.getItem("emoji-font");
+	initEmoji(emoji || "https://github.com/mozilla/twemoji-colr/releases/latest/download/TwemojiMozilla.ttf", emoji ? false : true);
 });
 
 // cyan's code
@@ -519,7 +656,7 @@ var switchPages = (() => {
 			if (key == "Enter") {
 				if (cL.contains("server-folder")) {
 					dataset.hidden = false;
-					target.children[0].focus();
+					setTimeout(() => target.children[0].focus(), 50);
 				} else if (cL.contains("server-folder-icon")) {
 					let parent = target.parentNode;
 					parent.dataset.hidden = true;

@@ -48,14 +48,39 @@
 	z-index: 5;
 	font-size: 1.2rem;
 	padding-bottom: 1rem;
+	padding-right: 0.5rem;
+	hyphens: auto;
 }
 
-.message b {
+.message > b {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	overflow: hidden;
 	display: block;
 	font-size: 1.29rem;
+}
+.message > img {
+	max-width: 100%;
+}
+
+.message pre,
+.message code {
+	font-family: "Droid Sans Mono";
+	border-radius: 3px;
+	background-color: #2f3136;
+}
+
+.message code {
+	font-size: 0.8em;
+	padding: 1px;
+}
+
+.message pre {
+	margin: 2px 0;
+	border: solid 1.5px #202225;
+	padding: 2px 5px;
+	word-break: break-all;
+	white-space: pre-wrap;
 }
 
 #chview,
@@ -213,5 +238,10 @@ footer > *:last-child {
 	background-image: var(--emoji_url);
 	width: 16px;
 	height: 16px;
-	top: 0.3rem;
+	top: 3px;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-attachment: local;
+	overflow: hidden;
+	background-size: contain;
 }

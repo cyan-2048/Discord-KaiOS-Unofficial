@@ -20,16 +20,16 @@ body {
 	overflow: hidden;
 	padding: 0;
 	margin: 0;
+	image-rendering: optimizeSpeed;
+}
+
+a {
+	color: #00aff4;
 }
 
 * {
-	font-family: twemoji, Open Sans;
+	font-family: "Open Sans", twemoji, sans-serif;
 	box-sizing: border-box;
-}
-
-@font-face {
-	font-family: twemoji;
-	src: url("https://cdn.jsdelivr.net/gh/cyan-2048/cyan-2048@0.0.1/twemoji.ttf");
 }
 
 #chview,
