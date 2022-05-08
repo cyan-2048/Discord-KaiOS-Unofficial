@@ -15,7 +15,8 @@
 		}
 
 		debug() {
-			if (this._debug === true) console.log("[gateway] ", ...arguments);
+			// we use console.info so that we can opt out when debugging
+			if (this._debug === true) console.info("[gateway] ", ...arguments);
 		}
 
 		addEventListener(name, callback) {
@@ -51,6 +52,14 @@
 			switch (packet.t) {
 				case "MESSAGE_CREATE": {
 					this.emit("message", packet.d);
+					break;
+				}
+				case "MESSAGE_UPDATE": {
+					this.emit("message_edit", packet.d);
+					break;
+				}
+				case "MESSAGE_DELETE": {
+					this.emit("message_delete", packet.d);
 					break;
 				}
 			}

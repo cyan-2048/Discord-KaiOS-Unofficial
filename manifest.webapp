@@ -1,5 +1,5 @@
 {
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"name": "Discord",
 	"description": "Discord Client for KaiOS",
 	"launch_path": "/index.html",

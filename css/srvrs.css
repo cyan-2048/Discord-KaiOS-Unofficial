@@ -52,12 +52,9 @@
 	transform: scale(0.37);
 }
 
+#srvrs .server-folder[data-hidden="true"] .server-icon:not(:nth-child(-n + 5)),
 #srvrs .server-folder[data-hidden="true"] .server-icon:nth-child(-n + 5)::after,
 #srvrs .server-folder[data-hidden="true"] .server-icon:nth-child(-n + 5)::before {
-	display: none;
-}
-
-#srvrs .server-folder[data-hidden="true"] .server-icon:not(:nth-child(-n + 5)) {
 	display: none;
 }
 
