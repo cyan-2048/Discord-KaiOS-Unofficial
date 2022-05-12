@@ -47,15 +47,15 @@
 	background: var(--chlist-select);
 }
 
-#chlist [data-channel][data-unread] *,
+#chlist [data-channel][data-unread="true"] *,
 #chlist [data-channel]:focus,
 #chlist [data-channel]:focus * {
 	color: white !important;
 	opacity: 1 !important;
 }
 
-#chlist [data-channel][data-unread]:not([data-type="dm"])::before,
-#chlist [data-channel][data-unread]:not([data-type="dm"])::before {
+#chlist [data-channel][data-unread="true"]:not([data-type="dm"])::before,
+#chlist [data-channel][data-unread="true"]:not([data-type="dm"])::before {
 	position: absolute;
 	content: "";
 	width: 1rem;

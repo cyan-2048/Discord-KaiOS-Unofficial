@@ -14,6 +14,21 @@
 	"permissions": {
 		"systemXHR": {
 			"description": "Required to access Discord's Server"
+		},
+		"video-capture": {
+			"description": "Reading Codes using the Camera"
+		}
+	},
+	"activities": {
+		"@discord_qr": {
+			"href": "./redirects/qr/index.html",
+			"disposition": "inline",
+			"returnValue": true
+		},
+		"@discord_login": {
+			"href": "./redirects/login/index.html",
+			"disposition": "inline",
+			"returnValue": true
 		}
 	},
 	"installs_allowed_from": ["*"],

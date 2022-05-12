@@ -9,10 +9,10 @@
 		<link rel="stylesheet" href="css/chlist.css" />
 		<link rel="stylesheet" href="css/chview.css" />
 		<link rel="stylesheet" href="css/srvrs.css" />
+		<script src="js/EventEmitter.js"></script>
 		<script src="js/EmojiDict.js"></script>
 		<script src="js/polyfills.js"></script>
 		<script src="js/spatial_navigation.js"></script>
-		<script src="js/DiscordGateway.js"></script>
 		<script src="js/DiscordXHR.js"></script>
 		<script src="js/DiscordClient.js" defer></script>
 	</head>
@@ -30,9 +30,11 @@
 				<span id="chname">Loading...</span>
 			</header>
 			<div id="composer">
+				<style></style>
 				<div id="message_container" tabindex="0"></div>
 				<div id="writer">
 					<textarea id="writert"></textarea>
+					<div id="readonly_warn">You do not have permission to send messages in this channel.</div>
 				</div>
 			</div>
 			<footer>

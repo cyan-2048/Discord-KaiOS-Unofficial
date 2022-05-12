@@ -131,7 +131,7 @@
 	border: solid 0.3rem var(--chlist-bkgrnd) !important;
 }
 
-#srvrs [data-unread]::before {
+#srvrs [data-unread="true"]::before {
 	content: "";
 	position: absolute;
 	width: 1rem;

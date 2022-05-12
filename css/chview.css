@@ -8,6 +8,22 @@
 
 #chview header {
 	font-weight: bold;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#readonly_warn {
+	display: none;
+}
+#chview[data-readonly="true"] #writert {
+	display: none;
+}
+#chview[data-readonly="true"] #readonly_warn {
+	display: block;
+}
+#chview[data-readonly="true"] footer > *:nth-child(2) {
+	font-size: 0;
 }
 
 #chview header [data-status]:not([data-status=""]) {
@@ -52,8 +68,8 @@
 	hyphens: auto;
 }
 
-.message > b {
-	color: var(--color, currentColor);
+.message > b,
+.message > b::after {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	overflow: hidden;
@@ -158,6 +174,7 @@ small,
 	outline: none !important;
 	overflow: auto;
 	word-wrap: break-word;
+	line-height: 1;
 }
 
 #composer,
@@ -165,7 +182,8 @@ small,
 	overflow: hidden;
 }
 
-.mentions {
+.mentions,
+.mentions::after {
 	background-color: var(--color, rgba(88, 101, 242, 0.3));
 	border-radius: 2px;
 	color: #dee0fc;

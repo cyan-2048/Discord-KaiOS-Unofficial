@@ -1,4 +1,4 @@
-var self = ((a) => {
+let self = ((a) => {
 	a.onsuccess = function () {
 		self = this.result;
 	};
@@ -7,7 +7,7 @@ var self = ((a) => {
 const getId = (e) => document.getElementById(e),
 	qs = (e) => document.querySelector(e),
 	qsa = (e) => [...document.querySelectorAll(e)],
-	unix_epoch = () => (new Date()-0),
+	unix_epoch = () => new Date() - 0,
 	last = (e) => e[e.length - 1],
 	crel = (e) => document.createElement(e);
 Element.prototype.qs = Element.prototype.querySelector;
@@ -40,4 +40,17 @@ function decimal2rgb(ns, arr) {
 		g = Math.floor(ns / 256) % 256,
 		b = ns % 256;
 	return arr ? [r, g, b] : { r, g, b };
+}
+
+function downloadBlob(blob, name) {
+	let url = URL.createObjectURL(blob),
+		anchor = document.createElement("a");
+	anchor.href = url;
+	anchor.download = name || "file.bin";
+	document.body.appendChild(anchor);
+	anchor.click();
+	setTimeout(() => {
+		URL.revokeObjectURL(url);
+		anchor.remove();
+	}, 500);
 }

@@ -2,16 +2,24 @@
 	let XMLHttpRequest = typeof require === "function" ? require("xmlhttprequest").XMLHttpRequest : window.XMLHttpRequest;
 
 	class DiscordXHR {
-		constructor() {
+		constructor(options = {}) {
 			this.token = null;
 			this.user = null;
+
+			if (options.cache === true) {
+				this.cache = {};
+			}
 		}
 
-		_fixHeaders(headers = {}) {
-			return Object.assign(headers, {
-				"content-type": "application/json",
-				authorization: this.token,
-			});
+		_res(obj) {
+			return Promise.resolve(typeof obj === "object" ? JSON.parse(JSON.stringify(obj)) : obj);
+		}
+
+		_fixHeaders(headers) {
+			let obj = {};
+			obj["Content-Type"] = "application/json";
+			if (this.token) obj.authorization = this.token;
+			return Object.assign(obj, headers || {});
 		}
 
 		_fullUrl(path = "/") {
@@ -30,9 +38,10 @@
 
 		login(token) {
 			this.token = token;
-			return this.getProfile("@me").then((x) => {
-				this.user = x;
-			});
+			if (!this.user)
+				this.getProfile("@me").then((x) => {
+					this.user = x;
+				});
 		}
 
 		xhrRequest(method, url, headers = {}, data = null) {
@@ -43,7 +52,7 @@
 				const hdr = this._fixHeaders(headers);
 				Object.entries(hdr).forEach((ent) => {
 					let [a, b] = ent;
-					xhr.setRequestHeader(a, b.replace(/\r?\n|\r/g, "")); // nodejs http bug
+					if (a && b) xhr.setRequestHeader(a, b.replace(/\r?\n|\r/g, "")); // nodejs http bug
 				});
 
 				xhr.onload = () => res(xhr.responseText, xhr);
@@ -94,19 +103,68 @@
 			return this.xhrRequestJSON("POST", `channels/${channel}/messages`, {}, Object.assign({ content: message, nonce: this.generateNonce() }, opts));
 		}
 
-		getChannel(channelId) {
-			return this.xhrRequestJSON("GET", `channels/${channelId}`);
+		getServer(serverId) {
+			if (this.cache) {
+				let e = this.cache.guilds.find((a) => a.id == serverId);
+				if (e) return this._res(e);
+			}
+			return discord.xhrRequestJSON("get", "guilds/" + serverId).then((r) =>
+				this.getChannels(serverId).then((re) => {
+					r.channels = re;
+					return r;
+				})
+			);
 		}
 
 		getServers() {
-			return this.xhrRequestJSON("GET", `users/@me/guilds`);
+			if (this.cache) {
+				return this._res(this.cache.guilds);
+			}
+			return this.xhrRequestJSON("GET", `users/@me/guilds`).then(
+				(re) =>
+					new Promise((res, err) => {
+						let arr = [],
+							len = re.length,
+							terminate = () => {
+								if (arr.length == len) res(arr);
+							};
+						re.forEach((a) => {
+							this.getServer(a.id).then((o) =>
+								setTimeout(() => {
+									arr.push(o);
+									terminate();
+								}, 100)
+							);
+						});
+					})
+			);
 		}
 
 		getSettings() {
+			if (this.cache) {
+				return this._res(this.cache.user_settings);
+			}
 			return this.xhrRequestJSON("GET", "users/@me/settings");
 		}
 
+		getChannel(channelId) {
+			if (this.cache) {
+				let e;
+				this.cache.guilds.find((a) => (e = a.channels.find((a) => a.id == channelId)));
+				if (e) return this._res(e);
+			}
+			return this.xhrRequestJSON("GET", `channels/${channelId}`);
+		}
+
+		_isProperArray(arr) {
+			return arr && arr instanceof Array && arr.length != 0;
+		}
+
 		getChannels(guildId) {
+			if (this.cache) {
+				let e = this.cache.guilds.find((a) => a.id == guildId);
+				if (e && this._isProperArray(e.channels)) return this._res(e.channels);
+			}
 			return this.xhrRequestJSON("GET", `guilds/${guildId}/channels`);
 		}
 
@@ -119,10 +177,21 @@
 		}
 
 		getRoles(guildId) {
+			if (this.cache) {
+				let e = this.cache.guilds.find((a) => a.id == guildId);
+				if (e && this._isProperArray(e.roles)) return this._res(e.roles);
+			}
 			return this.xhrRequestJSON("GET", `guilds/${guildId}/roles`);
 		}
 		// yeah sorry i am a normal human being who doesn't say "guilds" for servers
 		getServerProfile(guildId, userId) {
+			if (this.cache) {
+				let g = this.cache.guilds.find((a) => a.id == guildId);
+				if (g) {
+					let e = g.members.find((a) => a.user.id == userId);
+					if (e) return this._res(e);
+				}
+			}
 			return this.xhrRequestJSON("GET", `guilds/${guildId}/members/${userId == "@me" ? this.user.id : userId}`);
 		}
 

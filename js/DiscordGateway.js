@@ -1,11 +1,13 @@
 ((exports) => {
-	let WebSocket = typeof require == "function" ? require("ws") : window.WebSocket;
-	class DiscordGateway {
+	let WebSocket = typeof require == "function" ? require("ws") : exports.WebSocket;
+	let { EventEmitter } = typeof require == "function" ? require("./EventEmitter.js") : exports;
+
+	class DiscordGateway extends EventEmitter {
 		constructor(options) {
+			super();
 			this.token = null;
 			this.ws = null;
 			this.persist = null;
-			this.events = {};
 			this._debug = options && options.debug === true ? true : false;
 		}
 		// i don't understand why this has to be a get function...
@@ -19,12 +21,6 @@
 			if (this._debug === true) console.info("[gateway] ", ...arguments);
 		}
 
-		addEventListener(name, callback) {
-			this.events[name] = callback;
-		}
-		emit(name, data) {
-			if (name in this.events) this.events[name].apply(this, [data]);
-		}
 		login(token) {
 			this.token = token;
 		}
@@ -49,20 +45,7 @@
 		handlePacketDispatch(packet) {
 			this.persist.sequence_num = packet.s;
 			this.debug("dispatch:", packet);
-			switch (packet.t) {
-				case "MESSAGE_CREATE": {
-					this.emit("message", packet.d);
-					break;
-				}
-				case "MESSAGE_UPDATE": {
-					this.emit("message_edit", packet.d);
-					break;
-				}
-				case "MESSAGE_DELETE": {
-					this.emit("message_delete", packet.d);
-					break;
-				}
-			}
+			this.emit("t:" + packet.t.toLowerCase(), packet.d);
 		}
 		handlePacketInvalidSess(packet) {
 			this.debug("sess inv:", packet);
@@ -82,12 +65,12 @@
 			var interval = setInterval(() => {
 				if (ws != self.ws) return clearInterval(interval);
 				this.debug("Sending heartbeat...");
-
 				self.send({
 					op: 1, // HEARTBEAT
 					d: self.persist.sequence_num || null,
 				});
 			}, packet.d.heartbeat_interval);
+			this.debug("heartbeat interval: ", packet.d.heartbeat_interval);
 		}
 
 		handlePacketAck(packet) {
@@ -124,6 +107,7 @@
 				this.debug("Sending Identity [OP 2]...");
 			});
 			this.ws.addEventListener("close", function (evt) {
+				console.error("Discord gateway closed!");
 				self.emit("close", evt);
 			});
 		}

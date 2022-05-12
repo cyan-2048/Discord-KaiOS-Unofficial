@@ -1,7 +1,21 @@
 const sn = SpatialNavigation;
-var discord = new DiscordXHR();
+var discord = new DiscordXHR({ cache: true });
 
-var discordGateway = new DiscordGateway({ debug: true });
+var discordGateway = new (class extends EventEmitter {
+	constructor() {
+		super();
+		let worker = new Worker("/js/worker.js");
+		this.worker = worker;
+		worker.onmessage = (e) => {
+			let { event, data } = e.data;
+			this.emit(event, data);
+		};
+	}
+	init(token) {
+		this.worker.postMessage({ event: "init", token });
+	}
+})();
+
 // prettier-ignore
 function hashCode(r){var n,t=String(r),o=0;if(0===t.length)return o;for(n=0;n<t.length;n++)o=(o<<5)-o+t.charCodeAt(n),o|=0;return Array.from(o.toString()).map(r=>"ledoshcyan"[r]).join("")}
 
@@ -20,6 +34,105 @@ let bitwise2text = {
 	16: "make_priv_thread",
 	64: "write_thread",
 };
+
+function updateAllServers() {
+	qsa(".servers .server-icon").forEach(updateServerIcon);
+}
+
+function updateServerIcon(server_icon) {
+	let el = server_icon.dataset;
+	return discord
+		.getChannels(el.id)
+		.then((rt) => siftChannels(rt, el.id, true))
+		.then((r) => {
+			let state = r.map((h) => discord.cache.read_state.find((j) => j.id == h.id));
+
+			let state_ur = state.map((g) => (g || {}).last_message_id);
+			let current = r
+				.map((g) => (g || {}).last_message_id)
+				.map((f, i) => {
+					if (!state_ur[i]) return;
+					if (!f) state_ur[i] = f;
+					return f;
+				});
+			el.unread = JSON.stringify(state_ur) != JSON.stringify(current);
+			el.mentions = state.reduce((a, b) => a + (b || {}).mention_count || 0, 0);
+			return r;
+		});
+}
+
+function updateOneServer(guildID) {
+	let server_icon_el = qs(`.server-icon[data-id="${guildID}"]`);
+	if (!server_icon_el) return Promise.reject("ELEMENT NOT FOUND");
+	return updateServerIcon(server_icon_el).then((r) => {
+		let chlist = getId("chlist");
+		if (chlist.dataset.channel == server_icon_el.dataset.id) {
+			chlist.qsa("[data-channel]").forEach((a) => {
+				let channel = r.find((e) => e.id == a.dataset.channel);
+				if (!channel) return;
+				let el = discord.cache.read_state.find((e) => e.id == channel.id);
+				if (el) {
+					a.dataset.unread = channel.last_message_id ? el.last_message_id != channel.last_message_id : false;
+					let y = a.qs("[data-mentions]");
+					if (y) y.dataset.mentions = el.mention_count;
+				}
+			});
+		}
+	});
+}
+
+discordGateway.on("t:ready", (a) => {
+	discord.user = a.user;
+	let { user_settings, guilds, read_state, user_guild_settings } = a;
+	Object.assign(discord.cache, { user_settings, guilds, read_state, user_guild_settings });
+});
+
+discordGateway.on("t:message_ack", (a) => {
+	if (!discord.cache) return;
+	let el = discord.cache.read_state.find((e) => e.id == a.channel_id);
+	if (el) {
+		el.last_message_id = a.message_id;
+		el.mention_count = 0;
+	}
+	if (a.guild_id) updateOneServer(a.guild_id);
+});
+
+function messageWouldPing(message) {}
+
+discordGateway.on("t:message_create", (d) => {
+	if (!discord.cache) return;
+	let e;
+	discord.cache.guilds.find((a) => (e = a.channels.find((a) => a.id == d.channel_id)));
+	if (e) {
+		e.last_message_id = d.id;
+	}
+	if (d.guild_id) updateOneServer(d.guild_id);
+});
+
+discordGateway.on("t:user_settings_update", (d) => {
+	if (discord.cache) Object.assign(discord.cache.user_settings, d);
+});
+
+discordGateway.on("t:presence_update", (d) => {
+	if (!discord.cache) return;
+	let e = discord.cache.guilds.find((a) => a.id == d.guild_id);
+	if (e) {
+		let ix = e.presences.findIndex((a) => a.user.id == d.user.id);
+		if (ix) e.presences[ix] = d;
+		else e.presences.push(d);
+	}
+});
+
+discordGateway.once("t:ready", (a) => {
+	loadServers().then(updateAllServers);
+	listChannel({ dm: true });
+	//idk
+	setTimeout(() => {
+		if (navigator.userAgent == "Mozilla/5.0 (Mobile; Nokia_800_Tough; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5.2.2") {
+			listChannel({ dm: true });
+		}
+	}, 5000);
+});
 
 function groupBy(arr, property) {
 	return arr.reduce(function (memo, x) {
@@ -51,6 +164,58 @@ function parseRoleAccess(overwrites = [], roles = []) {
 	return obj;
 }
 
+function siftChannels(raw, guildId, skipSeparators) {
+	return Promise.all([discord.getRoles(guildId, "@me"), discord.getServerProfile(guildId, "@me")]).then((args) => {
+		let [roles, profile] = args;
+		return siftChannelsSync(raw, roles, profile, guildId, skipSeparators);
+	});
+}
+function siftChannelsSync(raw, roles, profile, skipSeparators) {
+	let position = (a, b) => a.position - b.position;
+	let _channels = {
+		0: [],
+	};
+	let separators = [];
+	let channels_id = {};
+	raw.forEach((a) => {
+		if (a.type == 4) {
+			_channels[a.name] = [];
+			channels_id[a.id] = a.name;
+			separators.push(a);
+		}
+	});
+	separators.sort(position);
+	separators = separators.map((a) => a.name);
+	separators.unshift(0);
+
+	raw.forEach((a) => {
+		if (a.type == 0 || a.type == 5) {
+			let perms = parseRoleAccess(a.permission_overwrites, profile.roles.concat([roles.find((p) => p.position == 0).id, profile.user.id]));
+			let id = a.parent_id;
+			if (perms.read !== false) (_channels[id ? channels_id[id] : 0] || []).push(a);
+		}
+	});
+
+	Object.keys(_channels).forEach((a) => {
+		if (_channels[a].length == 0) {
+			_channels[a] = null; // playing safe
+		} else {
+			_channels[a].sort(position);
+		}
+	});
+
+	let final = [];
+
+	separators.forEach((a) => {
+		if (_channels[a]) {
+			if (!skipSeparators) final.push({ type: "separator", name: a });
+			final = final.concat(_channels[a]);
+		}
+	});
+
+	return final;
+}
+
 function listChannel(opts = { dm: true }) {
 	let focus = null;
 	let list = getId("chlist");
@@ -79,51 +244,7 @@ function listChannel(opts = { dm: true }) {
 								.join(", ");
 						return { name: name, id: x.id, channel: x };
 				  })
-				: (() => {
-						let position = (a, b) => a.position - b.position;
-						let _channels = {
-							0: [],
-						};
-						let separators = [];
-						let channels_id = {};
-						raw.forEach((a) => {
-							if (a.type == 4) {
-								_channels[a.name] = [];
-								channels_id[a.id] = a.name;
-								separators.push(a);
-							}
-						});
-						separators.sort(position);
-						separators = separators.map((a) => a.name);
-						separators.unshift(0);
-
-						raw.forEach((a) => {
-							if (a.type == 0 || a.type == 5) {
-								let perms = parseRoleAccess(a.permission_overwrites, profile.roles.concat([roles.find((p) => p.position == 0).id, profile.user.id]));
-								let id = a.parent_id;
-								if (perms.read !== false) (_channels[id ? channels_id[id] : 0] || []).push(a);
-							}
-						});
-
-						Object.keys(_channels).forEach((a) => {
-							if (_channels[a].length == 0) {
-								_channels[a] = null; // playing safe
-							} else {
-								_channels[a].sort(position);
-							}
-						});
-
-						let final = [];
-
-						separators.forEach((a) => {
-							if (_channels[a]) {
-								final.push({ type: "separator", name: a });
-								final = final.concat(_channels[a]);
-							}
-						});
-
-						return final;
-				  })();
+				: siftChannelsSync(raw, roles, profile);
 
 			function separator(text) {
 				let header = crel("div");
@@ -217,9 +338,16 @@ function loadChannel(channel) {
 
 	let chview = getId("chview");
 	chview.dataset.channel = channel.id;
+	chview.dataset.readonly = false;
 	let guild = getId("chlist").dataset.channel;
 
-	discord.getChannel(channel.id).then((ch) => {
+	let style = msg_con.previousElementSibling;
+	if (style.tagName == "STYLE") style.innerHTML = "";
+	else style = null;
+
+	Promise.all([discord.getChannel(channel.id)].concat(guild != "dms" ? [discord.getRoles(guild), discord.getServerProfile(guild, "@me")] : [])).then((args) => {
+		let [ch, roles, profile] = args;
+
 		chname.innerText =
 			ch.name ||
 			ch.recipients
@@ -387,7 +515,7 @@ function loadChannel(channel) {
 			let span = crel("div");
 			span.id = "msg" + msg.id;
 			span.innerText = msg.content;
-			console.log(msg);
+			//	console.log(msg);
 			span.innerHTML = linkify(span.innerHTML) + (msg.edited_timestamp ? `<small> (edited)</small>` : "");
 			elem.appendChild(span);
 			if (msg.attachments && msg.attachments[0]) msg.attachments.forEach(handleAttach);
@@ -396,10 +524,11 @@ function loadChannel(channel) {
 			if (msg.referenced_message) handleReply(msg.referenced_message, span);
 		}
 
-		discord.getMessages(channel.id, 15).then((messages) => {
+		discord.getMessages(channel.id, 30).then((messages) => {
 			messages.reverse().forEach(addMessage);
 
-			let cache = {};
+			let ack = (id) => discord.xhrRequestJSON("post", `channels/${channel.id}/messages/${id}/ack`, {}, { token: "null" });
+			let init = true;
 
 			function updateMentions() {
 				let hash_mentions = chview.qsa(`.mentions[data-type="channel"]:not(.loaded)`);
@@ -416,7 +545,18 @@ function loadChannel(channel) {
 				});
 
 				if (guild != "dms") {
-					discord.getRoles(guild).then((roles) => {
+					chview.dataset.readonly = parseRoleAccess(ch.permission_overwrites, profile.roles.concat([roles.find((p) => p.position == 0).id, profile.user.id])).write === false;
+					if (init) {
+						switchPages("chview");
+						init = false;
+					}
+					if (style) {
+						roles.forEach((e) => {
+							if (e.color > 0) {
+								let col = decimal2rgb(e.color, true);
+								style.innerHTML += `.message [data-id="${e.id}"] {--color: rgba(${col},0.3); color: rgb(${col});} `;
+							}
+						});
 						let role_mentions = chview.qsa(`.mentions[data-type="role"]:not(.loaded)`);
 						new Set(role_mentions.map((a) => a.dataset.id)).forEach((a) => {
 							role_mentions
@@ -425,18 +565,15 @@ function loadChannel(channel) {
 									let sr = roles.find((e) => e.id == a);
 									d.innerText = "@" + (sr.name || "deleted-role");
 									d.classList.add("loaded");
-									let { style } = d;
-									if (sr && sr.color) {
-										let col = decimal2rgb(sr.color, true);
-										style.setProperty("--color", `rgba(${col},0.3)`);
-										style.color = `rgb(${col})`;
-									}
 								});
 						});
 
+						let cacheObj = {};
+
 						let mentions = chview.qsa(`.mentions[data-type="user"]:not(.loaded), .message > b:not(.loaded)`);
 						new Set(mentions.map((a) => a.dataset.id)).forEach((a) => {
-							discord.getServerProfile(guild, a).then((e) => {
+							(cacheObj[a] ? Promise.resolve(cacheObj[a]) : discord.getServerProfile(guild, a)).then((e) => {
+								if (!cacheObj[a]) cacheObj[a] = e;
 								if (!(e.roles && e.user)) return;
 								mentions
 									.filter((b) => b.dataset.id == a)
@@ -445,23 +582,17 @@ function loadChannel(channel) {
 										d.innerText = (isB ? "" : "@") + (e.nick ? e.nick : e.user.username) + (isB ? "\n" : "");
 										d.classList.add("loaded");
 										if (!isB) return;
-										let { style } = d;
-										if (e.roles && e.roles.length != 0) {
-											let sr = roles.reverse().find((o) => e.roles.includes(o.id));
-											if (sr && sr.color) {
-												let col = decimal2rgb(sr.color, true);
-												style.setProperty("--color", `rgba(${col},0.3)`);
-												style.color = `rgb(${col})`;
-											}
-										}
+										d.dataset.id = ([...roles].sort().find((o) => e.roles.includes(o.id) && o.color > 0) || {}).id;
 									});
 							});
 						});
-					});
+					}
 				} else {
+					let cacheObj = {};
 					let mentions = chview.qsa(`.mentions[data-type="user"]:not(.loaded)`);
 					new Set(mentions.map((a) => a.dataset.id)).forEach((a) => {
-						discord.getProfile(a).then((e) => {
+						(cacheObj[a] ? Promise.resolve(cacheObj[a]) : discord.getProfile(a)).then((e) => {
+							if (!cacheObj[a]) cacheObj[a] = e;
 							mentions
 								.filter((b) => b.dataset.id == a)
 								.forEach((d) => {
@@ -473,35 +604,51 @@ function loadChannel(channel) {
 				}
 			}
 			updateMentions();
-			setTimeout(() => (msg_con.scrollTop = msg_con.scrollHeight), 500);
-			discordGateway.addEventListener("message", function (evt) {
-				if (evt.channel_id != channel.id) return;
-				addMessage(evt, true);
-				updateMentions();
-				if (actEl().id == "writert") msg_con.scrollTop = msg_con.scrollHeight;
-			});
+			setTimeout(() => (msg_con.scrollTop = msg_con.scrollHeight), 10);
+			ack(ch.last_message_id);
+			discordGateway.on(
+				"t:message_create",
+				function (evt) {
+					if (evt.channel_id != channel.id) return;
+					addMessage(evt, true);
+					updateMentions();
+					if (actEl().id == "writert") {
+						msg_con.scrollTop = msg_con.scrollHeight;
+						ack(evt.id);
+					}
+				},
+				"message"
+			);
 
-			discordGateway.addEventListener("message_edit", function (evt) {
-				if (evt.channel_id != channel.id) return;
-				let a = qsa(`[data-id="${evt.id}"][data-embed]`);
-				let msg_el = msg_con.qs("#msg" + evt.id);
-				if (evt.embeds.length == 0 && a.length > 0) {
-					a.forEach((a) => a.remove());
-				}
-				let re = msg_el.qs(".reply");
-				if (re) re = re.outerHTML;
-				else re = "";
-				msg_el.innerHTML = re + linkify(evt.content) + `<small> (edited)</small>`;
-				updateMentions();
-			});
+			discordGateway.on(
+				"t:message_edit",
+				function (evt) {
+					if (evt.channel_id != channel.id) return;
+					let a = qsa(`[data-id="${evt.id}"][data-embed]`);
+					let msg_el = msg_con.qs("#msg" + evt.id);
+					if (evt.embeds.length == 0 && a.length > 0) {
+						a.forEach((a) => a.remove());
+					}
+					let re = msg_el.qs(".reply");
+					if (re) re = re.outerHTML;
+					else re = "";
+					msg_el.innerHTML = re + linkify(evt.content) + `<small> (edited)</small>`;
+					updateMentions();
+				},
+				"message"
+			);
 
-			discordGateway.addEventListener("message_delete", function (evt) {
-				if (evt.channel_id != channel.id) return;
-				msg_con.qsa(`[data-id="${evt.id}"],#msg${evt.id}`).forEach((a) => a.remove());
-				updateMentions();
-			});
+			discordGateway.on(
+				"t:message_delete",
+				function (evt) {
+					if (evt.channel_id != channel.id) return;
+					msg_con.qsa(`[data-id="${evt.id}"],#msg${evt.id}`).forEach((a) => a.remove());
+					updateMentions();
+				},
+				"message"
+			);
 
-			switchPages("chview");
+			if (guild != "dms") switchPages("chview");
 		});
 	});
 }
@@ -543,7 +690,7 @@ function loadServers() {
 		return el;
 	}
 
-	discord.getServers().then((_guilds) => {
+	return discord.getServers().then((_guilds) => {
 		let guilds = _guilds.map((a) => {
 			a.icon = a.icon ? `https://cdn.discordapp.com/icons/${a.id}/${a.icon}.png?size=48` : null;
 			return a;
@@ -570,18 +717,16 @@ function login(token, save) {
 	if (save) localStorage.setItem("token", token);
 
 	discord.login(token);
-	discordGateway.login(token);
+	discordGateway.init(token);
 
 	let attempts = 0;
-	let {
-		dataset: { channel: id },
-	} = getId("chview");
-	discordGateway.addEventListener("close", function () {
+	let { channel: id } = getId("chview").dataset;
+	discordGateway.on("close", function () {
 		function hmm() {
 			if (document.visibilityState == "visible") {
 				attempts++;
 				if (id) loadChannel({ id });
-				discordGateway.init();
+				discordGateway.init(token);
 			} else {
 				document.addEventListener("visibilitychange", function a() {
 					document.removeEventListener("visibilitychange", a);
@@ -596,16 +741,6 @@ function login(token, save) {
 			} else window.close();
 		} else hmm();
 	});
-
-	discordGateway.init();
-	loadServers();
-	listChannel({ dm: true });
-	//idk
-	setTimeout(() => {
-		if (navigator.userAgent == "Mozilla/5.0 (Mobile; Nokia_800_Tough; rv:48.0) Gecko/48.0 Firefox/48.0 KAIOS/2.5.2.2") {
-			listChannel({ dm: true });
-		}
-	}, 5000);
 }
 
 window.addEventListener("load", function () {
@@ -618,22 +753,17 @@ window.addEventListener("load", function () {
 	if (localStorage.getItem("token")) {
 		login(localStorage.getItem("token"));
 	} else {
-		fetch("/token.txt")
-			.then((r) => r.text())
-			.then((r) => {
-				login(r, true);
-			})
-			.catch((e) => {
-				log(
-					"To login: ",
-					"  1. Get your Discord token (you can use https://cyan-2048.github.io/discordo/)",
-					'"  2. Run the following function from WebIDE: ',
-					'"     login("TOKEN_HERE", true);',
-					'"  3. The DM selector should appear. If it',
-					'"     does not, relaunch the app and enjoy.'
-				);
-				alert("hi, token.txt was not found, please go to WebIDE and check the console logs, it will show you instructions...");
-			});
+		log(
+			"To login: ",
+			"  1. Get your Discord token (you can use https://cyan-2048.github.io/discordo/)",
+			'"  2. Run the following function from WebIDE: ',
+			'"     login("TOKEN_HERE", true);',
+			'"  3. The DM selector should appear. If it',
+			'"     does not, relaunch the app and enjoy.'
+		);
+		let e = new MozActivity({ name: "@discord_login" });
+		e.onsuccess = () => login(e.result, true);
+		e.onerror = () => window.close();
 	}
 
 	function initEmoji(link, toSave) {
@@ -697,6 +827,8 @@ var switchPages = (() => {
 		return obj;
 	})();
 
+	let { chview, chlist, srvrs } = _pages;
+
 	sn.init();
 	let disabled = true;
 	let _servers = `#srvrs [data-role="dms"], #srvrs .servers > [tabindex]:not([data-hidden="false"]), #srvrs .server-folder[data-hidden="false"] > [tabindex]`;
@@ -719,7 +851,7 @@ var switchPages = (() => {
 		_pages[g].className = "selected";
 		if (g == "chview") {
 			setTimeout(() => {
-				getId("writert").focus();
+				getId(chview.dataset.readonly !== "true" ? "writert" : "message_container").focus();
 			}, 500);
 		}
 
@@ -746,9 +878,9 @@ var switchPages = (() => {
 			}
 		}
 		if (g == "chlist") {
-			let current = _pages["chview"].dataset.channel;
+			let current = chview.dataset.channel;
 			if (current) {
-				let el = _pages["chlist"].qs("[data-channel='" + current + "']");
+				let el = chlist.qs(`[data-channel='${current}']`);
 				if (el) el.focus();
 				else {
 					actEl().blur();
@@ -757,6 +889,8 @@ var switchPages = (() => {
 			} else {
 				sn.focus();
 			}
+			let server = srvrs.qs(".servers .selected");
+			if (server) updateOneServer(server.dataset.id);
 		}
 	}
 
@@ -788,17 +922,13 @@ var switchPages = (() => {
 
 	let writert = getId("writert");
 
-	writert.setAttribute("style", "height:37px;overflow-y:hidden;");
-	writert.addEventListener(
-		"input",
-		function () {
-			if (this.scrollHeight < 73) {
-				this.style.height = "auto";
-				this.style.height = this.scrollHeight + "px";
-			}
-		},
-		false
-	);
+	writert.setAttribute("style", "height:27px;");
+	writert.addEventListener("input", function () {
+		if (this.scrollHeight < 73) {
+			this.style.height = "auto";
+			this.style.height = this.scrollHeight + "px";
+		}
+	});
 
 	writert.oninput = function () {
 		let x = /:([\s\S]*?):\n?$/,
@@ -821,8 +951,6 @@ var switchPages = (() => {
 		}
 	};
 
-	let { chview, chlist, srvrs } = _pages;
-
 	let msg_con = getId("message_container");
 
 	window.addEventListener("keydown", (e) => {
@@ -843,26 +971,26 @@ var switchPages = (() => {
 				if ((target == writert && writert.value == "") || target != writert) switchPages("chlist");
 			}
 
-			let scrolled = msg_con.scrollHeight - msg_con.scrollTop === msg_con.clientHeight;
+			if (chview.dataset.readonly !== "true") {
+				let scrolled = msg_con.scrollHeight - msg_con.scrollTop === msg_con.clientHeight;
 
-			if (key == "ArrowUp" && target == writert && caret(writert) == 0) {
-				if (target.value == "" && !scrolled) msg_con.focus();
-				else setTimeout(() => msg_con.focus(), 50);
-			}
-			if (key == "ArrowDown" && target == writert && target.value == "") {
-				msg_con.focus();
-			}
-
-			if (target.id == "message_container") {
-				let text = writert;
-				if (scrolled && key == "ArrowDown") {
-					text.focus();
-				} else if (target.scrollTop === 0 && key == "ArrowUp") {
-					text.focus();
+				if (key == "ArrowUp" && target == writert && caret(writert) == 0) {
+					if (target.value == "" && !scrolled) msg_con.focus();
+					else setTimeout(() => msg_con.focus(), 50);
 				}
+				if (key == "ArrowDown" && target == writert && target.value == "") {
+					msg_con.focus();
+				}
+				if (target.id == "message_container") {
+					let text = writert;
+					if (scrolled && key == "ArrowDown") {
+						text.focus();
+					} else if (target.scrollTop === 0 && key == "ArrowUp") {
+						text.focus();
+					}
+				}
+				if (key == "ArrowRight" && target.id == "message_container") writert.focus();
 			}
-
-			if (key == "ArrowRight" && target.id == "message_container") writert.focus();
 		} else if (chlist.classList.contains("selected")) {
 			let id = target.dataset.channel;
 			if (key == "Enter") {
@@ -883,6 +1011,7 @@ var switchPages = (() => {
 					setTimeout(() => target.children[0].focus(), 50);
 				} else if (cL.contains("server-folder-icon")) {
 					let parent = target.parentNode;
+					parent.dataset.mentions = [...parent.children].reduce((a, b) => a + Number(b.dataset.mentions) || 0, 0);
 					parent.dataset.hidden = true;
 					parent.focus();
 				} else {
